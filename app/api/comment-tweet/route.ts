@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { replyToTweet, extractTweetId } from '@/lib/twitter'
+import { replyToTweet } from '@/lib/twitter'
 import { saveComment } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
-    const { tweetUrl, comment } = await request.json()
+    const { tweetId, tweetUrl, comment } = await request.json()
 
-    const tweetId = extractTweetId(tweetUrl)
-    if (!tweetId) {
-      return NextResponse.json({ error: 'Invalid tweet URL' }, { status: 400 })
+    // Support both tweetId and tweetUrl for backwards compatibility
+    const id = tweetId || (tweetUrl ? tweetUrl.match(/status\/(\d+)/)?.[1] : null)
+    
+    if (!id) {
+      return NextResponse.json({ error: 'Invalid tweet ID or URL' }, { status: 400 })
     }
 
     if (!comment || comment.length > 280) {
@@ -16,11 +18,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Post comment
-    const replyId = await replyToTweet(tweetId, comment)
+    const replyId = await replyToTweet(id, comment)
     
     // Save to database
     await saveComment({
-      tweet_id: tweetId,
+      tweet_id: id,
       comment_text: comment,
       created_at: new Date().toISOString(),
     })
