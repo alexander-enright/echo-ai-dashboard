@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { retweetTweet, likeTweet, extractTweetId, getTweet, replyToTweet } from '@/lib/twitter'
-import { generateEngagementComment } from '@/lib/openai'
+import { generateEngagementComment } from '@/lib/ollama'
 import { saveEngagementLog } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {

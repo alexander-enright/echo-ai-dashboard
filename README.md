@@ -19,7 +19,7 @@ An AI-powered social media automation tool for X (Twitter). Generate motivationa
 - **Frontend**: Next.js 14 (App Router), React, TypeScript, TailwindCSS
 - **Backend**: Next.js API Routes (Serverless)
 - **Database**: Supabase (PostgreSQL)
-- **AI**: OpenAI GPT-4o-mini
+- **AI**: Ollama (local LLM)
 - **Social API**: X (Twitter) API v2
 - **Deployment**: Vercel
 
@@ -45,7 +45,8 @@ Required environment variables:
 
 | Variable | Description | Get From |
 |----------|-------------|----------|
-| `OPENAI_API_KEY` | OpenAI API access | [OpenAI Platform](https://platform.openai.com/api-keys) |
+| `OLLAMA_URL` | Ollama server URL | Default: http://localhost:11434 |
+| `OLLAMA_MODEL` | Model to use | Default: kimi-k2.5 |
 | `X_API_KEY` | X API Key | [Twitter Dev Portal](https://developer.twitter.com) |
 | `X_API_SECRET` | X API Secret | [Twitter Dev Portal](https://developer.twitter.com) |
 | `X_ACCESS_TOKEN` | X Access Token | [Twitter Dev Portal](https://developer.twitter.com) |

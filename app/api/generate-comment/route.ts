@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateComment } from '@/lib/openai'
+import { generateComment } from '@/lib/ollama'
 import { extractTweetId, getTweet } from '@/lib/twitter'
 
 export async function POST(request: NextRequest) {

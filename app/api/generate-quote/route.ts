@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateMotivationalQuote } from '@/lib/openai'
+import { generateMotivationalQuote } from '@/lib/ollama'
 import quotesData from '@/lib/quotes.json'
 
 export async function POST(request: NextRequest) {
