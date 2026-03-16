@@ -62,7 +62,7 @@ export default function ActivityFeed() {
         {/* Recent Posts */}
         <div>
           <h3 className="mb-3 text-sm font-medium text-gray-400">Recent Posts</h3>
-          {data?.posts?.length > 0 ? (
+          {(data?.posts?.length ?? 0) > 0 ? (
             <div className="space-y-2">
               {data.posts.map((post) => (
                 <div key={post.id} className="rounded-lg bg-gray-900 p-3">
@@ -83,7 +83,7 @@ export default function ActivityFeed() {
         {/* Recent Comments */}
         <div>
           <h3 className="mb-3 text-sm font-medium text-gray-400">Recent Comments</h3>
-          {data?.comments?.length > 0 ? (
+          {(data?.comments?.length ?? 0) > 0 ? (
             <div className="space-y-2">
               {data.comments.map((comment) => (
                 <div key={comment.id} className="rounded-lg bg-gray-900 p-3">
@@ -103,7 +103,7 @@ export default function ActivityFeed() {
         {/* Recent Engagements */}
         <div>
           <h3 className="mb-3 text-sm font-medium text-gray-400">Recent Engagements</h3>
-          {data?.engagements?.length > 0 ? (
+          {(data?.engagements?.length ?? 0) > 0 ? (
             <div className="space-y-2">
               {data.engagements.map((engagement) => (
                 <div key={engagement.id} className="flex items-center justify-between rounded-lg bg-gray-900 p-3">
