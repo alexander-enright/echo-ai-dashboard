@@ -1,5 +1,15 @@
 import { TwitterApi } from 'twitter-api-v2'
 
+// Debug: Check if env vars are loaded
+if (!process.env.X_API_KEY || !process.env.X_API_SECRET || !process.env.X_ACCESS_TOKEN || !process.env.X_ACCESS_SECRET) {
+  console.error('Missing X API credentials:', {
+    hasApiKey: !!process.env.X_API_KEY,
+    hasApiSecret: !!process.env.X_API_SECRET,
+    hasAccessToken: !!process.env.X_ACCESS_TOKEN,
+    hasAccessSecret: !!process.env.X_ACCESS_SECRET,
+  })
+}
+
 const client = new TwitterApi({
   appKey: process.env.X_API_KEY!,
   appSecret: process.env.X_API_SECRET!,
