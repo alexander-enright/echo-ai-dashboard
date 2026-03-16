@@ -1,69 +1,91 @@
 import { TwitterApi } from 'twitter-api-v2'
 
-// Check if env vars are loaded
+const bearerToken = process.env.X_BEARER_TOKEN
 const apiKey = process.env.X_API_KEY
 const apiSecret = process.env.X_API_SECRET
 const accessToken = process.env.X_ACCESS_TOKEN
 const accessSecret = process.env.X_ACCESS_SECRET
 
-if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
-  console.error('Missing X API credentials:', {
-    hasApiKey: !!apiKey,
-    hasApiSecret: !!apiSecret,
-    hasAccessToken: !!accessToken,
-    hasAccessSecret: !!accessSecret,
-  })
-  throw new Error('X API credentials not configured')
-}
-
-// Create client with OAuth 1.0a User Context (required for posting)
-const client = new TwitterApi({
-  appKey: apiKey,
-  appSecret: apiSecret,
-  accessToken: accessToken,
-  accessSecret: accessSecret,
+// Debug logging
+console.log('X API Config:', {
+  hasBearerToken: !!bearerToken,
+  hasApiKey: !!apiKey,
+  hasApiSecret: !!apiSecret,
+  hasAccessToken: !!accessToken,
+  hasAccessSecret: !!accessSecret,
 })
 
+// Create OAuth 1.0a client for user context (posting tweets)
+const userClient = (apiKey && apiSecret && accessToken && accessSecret) 
+  ? new TwitterApi({
+      appKey: apiKey,
+      appSecret: apiSecret,
+      accessToken: accessToken,
+      accessSecret: accessSecret,
+    })
+  : null
+
+// Create Bearer token client for read-only operations
+const appClient = bearerToken 
+  ? new TwitterApi(bearerToken)
+  : null
+
 export async function postTweet(text: string): Promise<string> {
+  if (!userClient) {
+    throw new Error('X API user credentials not configured')
+  }
   try {
-    const tweet = await client.v2.tweet(text)
+    const tweet = await userClient.v2.tweet(text)
     return tweet.data.id
   } catch (error: any) {
-    console.error('X API Error:', error.code, error.data)
+    console.error('X API Error posting tweet:', error.code, JSON.stringify(error.data, null, 2))
     throw error
   }
 }
 
 export async function replyToTweet(tweetId: string, text: string): Promise<string> {
+  if (!userClient) {
+    throw new Error('X API user credentials not configured')
+  }
   try {
-    const tweet = await client.v2.reply(text, tweetId)
+    const tweet = await userClient.v2.reply(text, tweetId)
     return tweet.data.id
   } catch (error: any) {
-    console.error('X API Error:', error.code, error.data)
+    console.error('X API Error replying:', error.code, JSON.stringify(error.data, null, 2))
     throw error
   }
 }
 
 export async function likeTweet(tweetId: string): Promise<void> {
+  if (!userClient) {
+    throw new Error('X API user credentials not configured')
+  }
   try {
-    await client.v2.like(accessToken!, tweetId)
+    await userClient.v2.like(accessToken!, tweetId)
   } catch (error: any) {
-    console.error('X API Error:', error.code, error.data)
+    console.error('X API Error liking:', error.code, JSON.stringify(error.data, null, 2))
     throw error
   }
 }
 
 export async function retweetTweet(tweetId: string): Promise<string> {
+  if (!userClient) {
+    throw new Error('X API user credentials not configured')
+  }
   try {
-    const retweet = await client.v2.retweet(accessToken!, tweetId)
+    const retweet = await userClient.v2.retweet(accessToken!, tweetId)
     return retweet.data?.retweeted ? tweetId : ''
   } catch (error: any) {
-    console.error('X API Error:', error.code, error.data)
+    console.error('X API Error retweeting:', error.code, JSON.stringify(error.data, null, 2))
     throw error
   }
 }
 
 export async function getTweet(tweetId: string) {
+  const client = userClient || appClient
+  if (!client) {
+    throw new Error('X API not configured')
+  }
   try {
     const tweet = await client.v2.singleTweet(tweetId, {
       expansions: ['author_id'],
@@ -71,7 +93,7 @@ export async function getTweet(tweetId: string) {
     })
     return tweet.data
   } catch (error: any) {
-    console.error('X API Error:', error.code, error.data)
+    console.error('X API Error getting tweet:', error.code, JSON.stringify(error.data, null, 2))
     return null
   }
 }
