@@ -46,6 +46,10 @@ export default function ActivityFeed() {
     )
   }
 
+  const posts = data?.posts || []
+  const comments = data?.comments || []
+  const engagements = data?.engagements || []
+
   return (
     <div className="rounded-xl bg-gray-800 p-6 shadow-lg">
       <div className="mb-4 flex items-center justify-between">
@@ -62,9 +66,9 @@ export default function ActivityFeed() {
         {/* Recent Posts */}
         <div>
           <h3 className="mb-3 text-sm font-medium text-gray-400">Recent Posts</h3>
-          {(data?.posts?.length ?? 0) > 0 ? (
+          {posts.length > 0 ? (
             <div className="space-y-2">
-              {data.posts.map((post) => (
+              {posts.map((post) => (
                 <div key={post.id} className="rounded-lg bg-gray-900 p-3">
                   <p className="text-sm text-white line-clamp-2">{post.content}</p>
                   <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
@@ -83,9 +87,9 @@ export default function ActivityFeed() {
         {/* Recent Comments */}
         <div>
           <h3 className="mb-3 text-sm font-medium text-gray-400">Recent Comments</h3>
-          {(data?.comments?.length ?? 0) > 0 ? (
+          {comments.length > 0 ? (
             <div className="space-y-2">
-              {data.comments.map((comment) => (
+              {comments.map((comment) => (
                 <div key={comment.id} className="rounded-lg bg-gray-900 p-3">
                   <p className="text-sm text-white line-clamp-2">{comment.comment_text}</p>
                   <div className="mt-2 text-xs text-gray-500">
@@ -103,9 +107,9 @@ export default function ActivityFeed() {
         {/* Recent Engagements */}
         <div>
           <h3 className="mb-3 text-sm font-medium text-gray-400">Recent Engagements</h3>
-          {(data?.engagements?.length ?? 0) > 0 ? (
+          {engagements.length > 0 ? (
             <div className="space-y-2">
-              {data.engagements.map((engagement) => (
+              {engagements.map((engagement) => (
                 <div key={engagement.id} className="flex items-center justify-between rounded-lg bg-gray-900 p-3">
                   <div className="flex items-center gap-3">
                     <span className={`rounded-full px-2 py-1 text-xs font-medium ${
