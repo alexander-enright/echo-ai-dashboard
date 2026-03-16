@@ -3,15 +3,27 @@
 import { useState } from 'react'
 
 export default function RetweetTool() {
-  const [tweetUrl, setTweetUrl] = useState('')
+  const [tweetInput, setTweetInput] = useState('')
   const [includeComment, setIncludeComment] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [actions, setActions] = useState<string[]>([])
 
+  // Extract tweet ID from URL or use direct ID
+  const extractTweetId = (input: string): string | null => {
+    // If it's just numbers, use it directly
+    if (/^\d+$/.test(input.trim())) {
+      return input.trim()
+    }
+    // Try to extract from URL
+    const match = input.match(/status\/(\d+)/)
+    return match ? match[1] : null
+  }
+
   const handleRetweet = async () => {
-    if (!tweetUrl) {
-      setMessage('Please enter a tweet URL')
+    const tweetId = extractTweetId(tweetInput)
+    if (!tweetId) {
+      setMessage('Please enter a Tweet ID or URL')
       return
     }
     setLoading(true)
@@ -21,13 +33,13 @@ export default function RetweetTool() {
       const res = await fetch('/api/retweet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tweetUrl, includeComment }),
+        body: JSON.stringify({ tweetId, includeComment }),
       })
       const data = await res.json()
       if (data.success) {
         setActions(data.actions)
         setMessage(`Successfully ${data.actions.join(', ')}!`)
-        setTweetUrl('')
+        setTweetInput('')
       } else {
         setMessage(data.error || 'Failed to complete actions')
       }
@@ -42,14 +54,15 @@ export default function RetweetTool() {
       <h2 className="mb-4 text-lg font-semibold text-white">Retweet Tool</h2>
       
       <div className="mb-4">
-        <label className="mb-2 block text-sm text-gray-400">Tweet URL</label>
+        <label className="mb-2 block text-sm text-gray-400">Tweet ID or URL</label>
         <input
           type="text"
-          value={tweetUrl}
-          onChange={(e) => setTweetUrl(e.target.value)}
-          placeholder="https://x.com/username/status/1234567890"
+          value={tweetInput}
+          onChange={(e) => setTweetInput(e.target.value)}
+          placeholder="1234567890 or https://x.com/user/status/1234567890"
           className="w-full rounded-lg bg-gray-700 px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500"
         />
+        <p className="mt-1 text-xs text-gray-500">Enter just the Tweet ID (numbers) or full URL</p>
       </div>
 
       <div className="mb-4 flex items-center gap-2">

@@ -1,24 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { retweetTweet, likeTweet, extractTweetId, getTweet, replyToTweet } from '@/lib/twitter'
+import { retweetTweet, likeTweet, getTweet, replyToTweet } from '@/lib/twitter'
 import { generateEngagementComment } from '@/lib/ollama'
 import { saveEngagementLog } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
-    const { tweetUrl, includeComment } = await request.json()
+    const { tweetId, tweetUrl, includeComment } = await request.json()
 
-    const tweetId = extractTweetId(tweetUrl)
-    if (!tweetId) {
-      return NextResponse.json({ error: 'Invalid tweet URL' }, { status: 400 })
+    // Support both tweetId and tweetUrl for backwards compatibility
+    const id = tweetId || (tweetUrl ? tweetUrl.match(/status\/(\d+)/)?.[1] : null)
+    
+    if (!id) {
+      return NextResponse.json({ error: 'Invalid tweet ID or URL' }, { status: 400 })
     }
 
     const results: string[] = []
 
     // Like the tweet
     try {
-      await likeTweet(tweetId)
+      await likeTweet(id)
       await saveEngagementLog({
-        tweet_id: tweetId,
+        tweet_id: id,
         action: 'like',
         created_at: new Date().toISOString(),
       })
@@ -29,9 +31,9 @@ export async function POST(request: NextRequest) {
 
     // Retweet
     try {
-      await retweetTweet(tweetId)
+      await retweetTweet(id)
       await saveEngagementLog({
-        tweet_id: tweetId,
+        tweet_id: id,
         action: 'retweet',
         created_at: new Date().toISOString(),
       })
@@ -43,12 +45,12 @@ export async function POST(request: NextRequest) {
     // Optional comment
     if (includeComment) {
       try {
-        const tweet = await getTweet(tweetId)
+        const tweet = await getTweet(id)
         if (tweet) {
           const comment = await generateEngagementComment(tweet.text)
-          await replyToTweet(tweetId, comment)
+          await replyToTweet(id, comment)
           await saveEngagementLog({
-            tweet_id: tweetId,
+            tweet_id: id,
             action: 'comment',
             created_at: new Date().toISOString(),
           })
