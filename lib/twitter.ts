@@ -9,13 +9,15 @@ const apiSecret = process.env.X_API_SECRET
 const accessToken = process.env.X_ACCESS_TOKEN
 const accessSecret = process.env.X_ACCESS_SECRET
 
-// Debug logging
+// Debug logging - show first 10 chars of each token to verify
 console.log('X API Config:', {
   hasBearerToken: !!bearerToken,
   hasApiKey: !!apiKey,
   hasApiSecret: !!apiSecret,
   hasAccessToken: !!accessToken,
   hasAccessSecret: !!accessSecret,
+  apiKeyPreview: apiKey ? apiKey.substring(0, 10) + '...' : 'missing',
+  accessTokenPreview: accessToken ? accessToken.substring(0, 10) + '...' : 'missing',
 })
 
 // Create OAuth 1.0a client for user context (posting tweets)
