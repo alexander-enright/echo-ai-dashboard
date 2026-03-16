@@ -3,6 +3,7 @@ import QuoteGenerator from '@/components/QuoteGenerator'
 import CommentGenerator from '@/components/CommentGenerator'
 import RetweetTool from '@/components/RetweetTool'
 import ActivityFeed from '@/components/ActivityFeed'
+import SportsFeed from '@/components/SportsFeed'
 
 export default function Home() {
   return (
@@ -14,6 +15,7 @@ export default function Home() {
           {/* Left Column */}
           <div className="space-y-6">
             <QuoteGenerator />
+            <SportsFeed />
             <CommentGenerator />
             <RetweetTool />
           </div>
