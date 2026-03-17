@@ -10,9 +10,9 @@ export const dynamic = 'force-dynamic'
 
 const client = new TwitterApi(process.env.X_BEARER_TOKEN || '')
 
-// Filter rules
-const MIN_LIKES = 10
-const MIN_RETWEETS = 5
+// Filter rules - LOWERED for testing
+const MIN_LIKES = 3  // Was 10
+const MIN_RETWEETS = 1  // Was 5
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,6 +46,8 @@ export async function POST(request: NextRequest) {
     const history = await getRetweetHistory(100)
     const alreadyRetweetedIds = new Set(history.map((h: any) => h.tweet_id))
     
+    console.log(`Processing ${tweets.length} tweets. Auto-retweet enabled: ${autoRetweetEnabled}`)
+    
     for (const tweet of tweets) {
       // Skip if already retweeted
       if (alreadyRetweetedIds.has(tweet.id)) {
@@ -73,12 +75,12 @@ export async function POST(request: NextRequest) {
       }
       
       if (metrics.like_count < MIN_LIKES) {
-        skipped.push({ tweet_id: tweet.id, reason: 'not_enough_likes' })
+        skipped.push({ tweet_id: tweet.id, reason: `only ${metrics.like_count} likes (need ${MIN_LIKES})` })
         continue
       }
       
       if (metrics.retweet_count < MIN_RETWEETS) {
-        skipped.push({ tweet_id: tweet.id, reason: 'not_enough_retweets' })
+        skipped.push({ tweet_id: tweet.id, reason: `only ${metrics.retweet_count} retweets (need ${MIN_RETWEETS})` })
         continue
       }
       
@@ -97,15 +99,22 @@ export async function POST(request: NextRequest) {
         console.log('Could not fetch author')
       }
       
+      console.log(`Found valid tweet: ${tweet.id} by @${authorUsername} with ${metrics.like_count} likes, ${metrics.retweet_count} retweets`)
+      
       // Retweet if enabled
       let retweetSuccess = false
+      let errorMsg = ''
       if (autoRetweetEnabled) {
         try {
           await userClient.v2.retweet(userId, tweet.id)
           retweetSuccess = true
+          console.log(`Successfully retweeted: ${tweet.id}`)
         } catch (e: any) {
+          errorMsg = e.message
           console.error('Retweet failed:', e.message)
         }
+      } else {
+        console.log('Auto-retweet disabled, skipping actual retweet')
       }
       
       // Save to history
@@ -127,6 +136,7 @@ export async function POST(request: NextRequest) {
         likes: metrics.like_count,
         retweets: metrics.retweet_count,
         actually_retweeted: retweetSuccess,
+        error: errorMsg || undefined,
       })
       
       // Stop after 3 retweets
@@ -139,7 +149,9 @@ export async function POST(request: NextRequest) {
       retweeted: retweeted.length,
       retweeted_tweets: retweeted,
       skipped: skipped.length,
+      skipped_reasons: skipped.slice(0, 10), // Show first 10 skip reasons
       auto_retweet_enabled: autoRetweetEnabled,
+      filters: { min_likes: MIN_LIKES, min_retweets: MIN_RETWEETS },
     })
   } catch (error: any) {
     console.error('Error in retweet scheduler:', error)
