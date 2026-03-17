@@ -15,14 +15,14 @@ export default function Landing() {
           <Image
             src="/ae-logo.png"
             alt="AE Logo"
-            width={80}
-            height={80}
-            className="h-20 w-20 object-contain"
+            width={240}
+            height={240}
+            className="h-60 w-60 object-contain"
             onError={() => setImageError(true)}
             priority
           />
         ) : (
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-600 text-2xl font-bold text-white">
+          <div className="flex h-60 w-60 items-center justify-center rounded-full bg-red-600 text-6xl font-bold text-white">
             AE
           </div>
         )}
