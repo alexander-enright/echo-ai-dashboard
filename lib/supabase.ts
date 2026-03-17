@@ -74,3 +74,91 @@ export async function getRecentEngagementLogs(limit: number = 10) {
   if (error) throw error
   return data as EngagementLog[]
 }
+
+// Scheduled Quotes
+export async function saveScheduledQuote(quote: any) {
+  const { data, error } = await supabase
+    .from('scheduled_quotes')
+    .insert([quote])
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data
+}
+
+export async function getScheduledQuotes(limit: number = 50) {
+  const { data, error } = await supabase
+    .from('scheduled_quotes')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  
+  if (error) throw error
+  return data
+}
+
+export async function updateScheduledQuote(id: string, updates: any) {
+  const { data, error } = await supabase
+    .from('scheduled_quotes')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data
+}
+
+// Retweet History
+export async function saveRetweetHistory(retweet: any) {
+  const { data, error } = await supabase
+    .from('retweet_history')
+    .insert([retweet])
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data
+}
+
+export async function getRetweetHistory(limit: number = 100) {
+  const { data, error } = await supabase
+    .from('retweet_history')
+    .select('*')
+    .order('retweeted_at', { ascending: false })
+    .limit(limit)
+  
+  if (error) throw error
+  return data
+}
+
+// Automation Settings
+export async function getAutomationSetting(name: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('automation_settings')
+    .select('setting_value')
+    .eq('setting_name', name)
+    .single()
+  
+  if (error) {
+    console.error('Error getting setting:', error)
+    return false
+  }
+  return data?.setting_value || false
+}
+
+export async function setAutomationSetting(name: string, value: boolean) {
+  const { data, error } = await supabase
+    .from('automation_settings')
+    .upsert({
+      setting_name: name,
+      setting_value: value,
+      updated_at: new Date().toISOString(),
+    })
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data
+}

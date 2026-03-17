@@ -2,6 +2,8 @@ import Header from '@/components/Header'
 import QuoteGenerator from '@/components/QuoteGenerator'
 import SportsFeed from '@/components/SportsFeed'
 import ActivityFeed from '@/components/ActivityFeed'
+import ScheduledQuotes from '@/components/ScheduledQuotes'
+import RetweetAutomation from '@/components/RetweetAutomation'
 
 export default function Home() {
   return (
@@ -13,12 +15,14 @@ export default function Home() {
           {/* Left Column */}
           <div className="space-y-6">
             <QuoteGenerator />
+            <ScheduledQuotes />
             <SportsFeed />
           </div>
 
           {/* Right Column */}
-          <div>
+          <div className="space-y-6">
             <ActivityFeed />
+            <RetweetAutomation />
           </div>
         </div>
       </main>
