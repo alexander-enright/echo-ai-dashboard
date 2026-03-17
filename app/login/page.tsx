@@ -13,7 +13,9 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  
+  // Create client inside component to avoid static generation issues
+  const [supabase] = useState(() => createClientComponentClient())
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
