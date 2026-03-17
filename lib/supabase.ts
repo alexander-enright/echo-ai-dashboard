@@ -155,9 +155,10 @@ export async function setAutomationSetting(name: string, value: boolean) {
       setting_name: name,
       setting_value: value,
       updated_at: new Date().toISOString(),
+    }, {
+      onConflict: 'setting_name'
     })
     .select()
-    .single()
   
   if (error) throw error
   return data
