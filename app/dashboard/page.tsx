@@ -1,3 +1,8 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/components/AuthProvider'
 import Header from '@/components/Header'
 import QuoteGenerator from '@/components/QuoteGenerator'
 import SportsFeed from '@/components/SportsFeed'
@@ -7,7 +12,28 @@ import RetweetAutomation from '@/components/RetweetAutomation'
 import TargetedRetweet from '@/components/TargetedRetweet'
 import GrowthStats from '@/components/GrowthStats'
 
-export default function Home() {
+export default function Dashboard() {
+  const { user, isLoading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login')
+    }
+  }, [user, isLoading, router])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-gray-400">Loading...</div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null
+  }
+
   return (
     <div className="min-h-screen bg-gray-950">
       <Header />
