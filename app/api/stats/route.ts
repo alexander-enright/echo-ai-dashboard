@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     })
     
     const me = await userClient.v2.me({
-      'user.fields': ['public_metrics', 'created_at'],
+      'user.fields': ['public_metrics'],
     })
     
     const userData = me.data
@@ -28,22 +28,14 @@ export async function GET(request: NextRequest) {
     const lastWeek = new Date()
     lastWeek.setDate(lastWeek.getDate() - 7)
     
-    // Get ALL posts generated (not just posted to X) - last 24 hours
-    const { data: dailyPostsGenerated, error: postsGenError } = await supabase
-      .from('scheduled_quotes')
-      .select('*')
-      .gte('created_at', yesterday.toISOString())
-    
-    if (postsGenError) console.error('Posts generated error:', postsGenError)
-    
     // Get posts actually posted to X - last 24 hours
-    const { data: dailyPostsPosted, error: postsPostedError } = await supabase
+    const { data: dailyPosts, error: postsError } = await supabase
       .from('scheduled_quotes')
       .select('*')
-      .gte('created_at', yesterday.toISOString())
+      .gte('posted_at', yesterday.toISOString())
       .eq('posted_to_x', true)
     
-    if (postsPostedError) console.error('Posts posted error:', postsPostedError)
+    if (postsError) console.error('Posts error:', postsError)
     
     // Get retweets made - last 24 hours
     const { data: dailyRetweets, error: retweetsError } = await supabase
@@ -61,17 +53,8 @@ export async function GET(request: NextRequest) {
     
     if (engagementsError) console.error('Engagements error:', engagementsError)
     
-    // Get posts from regular posts table too
-    const { data: regularPosts, error: regularError } = await supabase
-      .from('posts')
-      .select('*')
-      .gte('posted_at', yesterday.toISOString())
-    
-    if (regularError) console.error('Regular posts error:', regularError)
-    
     // Calculate accurate stats
-    const totalPostsGenerated = (dailyPostsGenerated?.length || 0) + (regularPosts?.length || 0)
-    const totalPostsPosted = (dailyPostsPosted?.length || 0) + (regularPosts?.length || 0)
+    const totalPosts = dailyPosts?.length || 0
     const totalRetweets = dailyRetweets?.length || 0
     const totalEngagements = dailyEngagements?.length || 0
     
@@ -86,36 +69,25 @@ export async function GET(request: NextRequest) {
     // Get weekly totals
     const { data: weeklyPosts } = await supabase
       .from('scheduled_quotes')
-      .select('created_at')
-      .gte('created_at', lastWeek.toISOString())
+      .select('posted_at')
+      .gte('posted_at', lastWeek.toISOString())
+      .eq('posted_to_x', true)
     
     const { data: weeklyRetweets } = await supabase
       .from('retweet_history')
       .select('retweeted_at')
       .gte('retweeted_at', lastWeek.toISOString())
     
-    // For followers gained, we need to compare with yesterday's count
-    // Since we don't store historical data, we'll show "N/A" or calculate from activity
-    // A rough estimate: 1-3% of interactions convert to followers
-    const estimatedFollowersGained = Math.floor(totalInteractions * 0.02)
-    
     return NextResponse.json({
       followers: {
         current: currentFollowers,
-        gained: estimatedFollowersGained,
-        note: 'Estimated based on engagement activity'
       },
-      dailyPosts: {
-        generated: totalPostsGenerated,
-        posted: totalPostsPosted,
+      dailyActivity: {
+        posts: totalPosts,
+        retweets: totalRetweets,
+        interactions: totalInteractions,
       },
       engagementRate: `${engagementRate}%`,
-      totalInteractions: totalInteractions,
-      breakdown: {
-        retweets: totalRetweets,
-        likes: dailyEngagements?.filter(e => e.action === 'like').length || 0,
-        comments: dailyEngagements?.filter(e => e.action === 'comment').length || 0,
-      },
       weeklyActivity: {
         posts: weeklyPosts?.length || 0,
         retweets: weeklyRetweets?.length || 0,

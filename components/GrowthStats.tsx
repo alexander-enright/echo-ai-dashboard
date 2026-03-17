@@ -5,20 +5,13 @@ import { useState, useEffect } from 'react'
 interface Stats {
   followers: {
     current: number
-    gained: number
-    note?: string
   }
-  dailyPosts: {
-    generated: number
-    posted: number
+  dailyActivity: {
+    posts: number
+    retweets: number
+    interactions: number
   }
   engagementRate: string
-  totalInteractions: number
-  breakdown: {
-    retweets: number
-    likes: number
-    comments: number
-  }
   weeklyActivity: {
     posts: number
     retweets: number
@@ -73,7 +66,7 @@ export default function GrowthStats() {
     <div className="rounded-xl bg-gray-800 p-6 shadow-lg">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">Growth Stats</h2>
+          <h2 className="text-lg font-semibold text-white">Daily Activity</h2>
           {stats?.username && (
             <p className="text-sm text-gray-400">@{stats.username}</p>
           )}
@@ -88,45 +81,39 @@ export default function GrowthStats() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {/* Followers Gained */}
+        {/* Total Followers */}
         <div className="rounded-lg bg-gray-900 p-4">
-          <p className="mb-1 text-xs text-gray-400">Followers Gained (24h)</p>
+          <p className="mb-1 text-xs text-gray-400">Total Followers</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-green-400">
-              +{formatNumber(stats?.followers?.gained || 0)}
+            <span className="text-2xl font-bold text-white">
+              {formatNumber(stats?.followers?.current || 0)}
             </span>
           </div>
-          <p className="text-xs text-gray-500">
-            {formatNumber(stats?.followers?.current || 0)} total
-          </p>
-          {stats?.followers?.note && (
-            <p className="mt-1 text-xs text-gray-600">{stats.followers.note}</p>
-          )}
         </div>
 
-        {/* Daily Posts Generated */}
+        {/* Daily Posts */}
         <div className="rounded-lg bg-gray-900 p-4">
-          <p className="mb-1 text-xs text-gray-400">Posts Generated (24h)</p>
+          <p className="mb-1 text-xs text-gray-400">Posts Today</p>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold text-blue-400">
-              {stats?.dailyPosts?.generated || 0}
+              {stats?.dailyActivity?.posts || 0}
             </span>
           </div>
           <p className="text-xs text-gray-500">
-            {stats?.dailyPosts?.posted || 0} posted to X
+            {stats?.weeklyActivity?.posts || 0} this week
           </p>
         </div>
 
-        {/* Engagement Rate */}
+        {/* Daily Retweets */}
         <div className="rounded-lg bg-gray-900 p-4">
-          <p className="mb-1 text-xs text-gray-400">Engagement Rate</p>
+          <p className="mb-1 text-xs text-gray-400">Retweets Today</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-purple-400">
-              {stats?.engagementRate || '0.00%'}
+            <span className="text-2xl font-bold text-green-400">
+              {stats?.dailyActivity?.retweets || 0}
             </span>
           </div>
           <p className="text-xs text-gray-500">
-            Interactions / Followers
+            {stats?.weeklyActivity?.retweets || 0} this week
           </p>
         </div>
 
@@ -135,23 +122,14 @@ export default function GrowthStats() {
           <p className="mb-1 text-xs text-gray-400">Total Interactions</p>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold text-red-400">
-              {formatNumber(stats?.totalInteractions || 0)}
+              {stats?.dailyActivity?.interactions || 0}
             </span>
           </div>
           <p className="text-xs text-gray-500">
-            {stats?.breakdown?.retweets || 0} RTs, {stats?.breakdown?.likes || 0} likes
+            Engagement: {stats?.engagementRate || '0.00%'}
           </p>
         </div>
       </div>
-
-      {/* Weekly Summary */}
-      {stats?.weeklyActivity && (
-        <div className="mt-4 rounded-lg bg-gray-900/50 p-3">
-          <p className="text-xs text-gray-400">
-            This week: {stats.weeklyActivity.posts} posts generated, {stats.weeklyActivity.retweets} retweets
-          </p>
-        </div>
-      )}
 
       {lastUpdated && (
         <p className="mt-4 text-right text-xs text-gray-500">
