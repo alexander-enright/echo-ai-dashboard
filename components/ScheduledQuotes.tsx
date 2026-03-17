@@ -39,7 +39,12 @@ export default function ScheduledQuotes() {
   const fetchAutoPostSetting = async () => {
     try {
       const res = await fetch('/api/automationSettings?setting=auto_post_quotes')
+      if (!res.ok) {
+        console.error('Failed to fetch setting:', res.status)
+        return
+      }
       const data = await res.json()
+      console.log('Fetched auto_post setting:', data)
       setAutoPost(data.value || false)
     } catch (error) {
       console.error('Error fetching setting:', error)

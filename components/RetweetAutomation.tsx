@@ -39,7 +39,12 @@ export default function RetweetAutomation() {
   const fetchAutoRetweetSetting = async () => {
     try {
       const res = await fetch('/api/automationSettings?setting=enable_auto_retweets')
+      if (!res.ok) {
+        console.error('Failed to fetch setting:', res.status)
+        return
+      }
       const data = await res.json()
+      console.log('Fetched auto_retweet setting:', data)
       setAutoRetweet(data.value || false)
     } catch (error) {
       console.error('Error fetching setting:', error)

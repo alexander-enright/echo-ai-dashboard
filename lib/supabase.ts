@@ -139,7 +139,7 @@ export async function getAutomationSetting(name: string): Promise<boolean> {
     .from('automation_settings')
     .select('setting_value')
     .eq('setting_name', name)
-    .single()
+    .maybeSingle()
   
   if (error) {
     console.error('Error getting setting:', error)
