@@ -1,6 +1,6 @@
 // Ollama API client for local AI generation
 
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434'
+const OLLAMA_URL = (process.env.OLLAMA_URL || 'http://localhost:11434').trim()
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'kimi-k2.5'
 
 interface OllamaResponse {
