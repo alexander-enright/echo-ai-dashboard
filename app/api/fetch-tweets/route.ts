@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { TwitterApi } from 'twitter-api-v2'
 
+export const dynamic = 'force-dynamic'
+
 const client = new TwitterApi(process.env.X_BEARER_TOKEN || '')
 
 export async function GET(request: NextRequest) {
