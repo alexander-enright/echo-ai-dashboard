@@ -4,6 +4,7 @@ import SportsFeed from '@/components/SportsFeed'
 import ActivityFeed from '@/components/ActivityFeed'
 import ScheduledQuotes from '@/components/ScheduledQuotes'
 import RetweetAutomation from '@/components/RetweetAutomation'
+import TargetedRetweet from '@/components/TargetedRetweet'
 
 export default function Home() {
   return (
@@ -22,6 +23,7 @@ export default function Home() {
           {/* Right Column */}
           <div className="space-y-6">
             <ActivityFeed />
+            <TargetedRetweet />
             <RetweetAutomation />
           </div>
         </div>
