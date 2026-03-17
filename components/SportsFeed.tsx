@@ -97,7 +97,11 @@ export default function SportsFeed() {
       })
       const data = await res.json()
       if (data.success) {
-        setMessage(`Retweeted! (${data.actions.join(', ')})`)
+        let msg = `Retweeted! (${data.actions.join(', ')})`
+        if (data.warnings && data.warnings.length > 0) {
+          msg += ` | Warnings: ${data.warnings.join(', ')}`
+        }
+        setMessage(msg)
       } else {
         setMessage(`Failed: ${data.error || 'Unknown error'}`)
       }
