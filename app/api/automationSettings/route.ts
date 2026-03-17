@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
     const value = await getAutomationSetting(setting)
     return NextResponse.json({ setting, value })
   } catch (error: any) {
-    console.error('Error getting setting:', error)
-    return NextResponse.json({ error: 'Failed to get setting' }, { status: 500 })
+    console.error('Error getting setting:', error.message, error.stack)
+    return NextResponse.json({ error: error.message || 'Failed to get setting' }, { status: 500 })
   }
 }
 
