@@ -93,7 +93,10 @@ export async function retweetTweet(tweetId: string): Promise<string> {
   }
   try {
     const retweet = await userClient.v2.retweet(accessToken!, tweetId)
-    return retweet.data?.retweeted ? tweetId : ''
+    if (!retweet.data?.retweeted) {
+      throw new Error('Retweet was not successful - API returned false')
+    }
+    return tweetId
   } catch (error: any) {
     console.error('X API Error retweeting:', error.code, JSON.stringify(error.data, null, 2))
     throw error
