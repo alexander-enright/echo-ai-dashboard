@@ -80,7 +80,9 @@ export async function likeTweet(tweetId: string): Promise<void> {
     throw new Error('X API user credentials not configured')
   }
   try {
-    await userClient.v2.like(accessToken!, tweetId)
+    // Get the current user ID first
+    const user = await userClient.v2.me()
+    await userClient.v2.like(user.data.id, tweetId)
   } catch (error: any) {
     console.error('X API Error liking:', error.code, JSON.stringify(error.data, null, 2))
     throw error
@@ -92,7 +94,9 @@ export async function retweetTweet(tweetId: string): Promise<string> {
     throw new Error('X API user credentials not configured')
   }
   try {
-    const retweet = await userClient.v2.retweet(accessToken!, tweetId)
+    // Get the current user ID first
+    const user = await userClient.v2.me()
+    const retweet = await userClient.v2.retweet(user.data.id, tweetId)
     if (!retweet.data?.retweeted) {
       throw new Error('Retweet was not successful - API returned false')
     }
