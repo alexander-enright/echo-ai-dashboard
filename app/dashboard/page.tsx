@@ -5,6 +5,7 @@ import ActivityFeed from '@/components/ActivityFeed'
 import ScheduledQuotes from '@/components/ScheduledQuotes'
 import RetweetAutomation from '@/components/RetweetAutomation'
 import TargetedRetweet from '@/components/TargetedRetweet'
+import GrowthStats from '@/components/GrowthStats'
 
 export default function Home() {
   return (
@@ -12,6 +13,11 @@ export default function Home() {
       <Header />
       
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Growth Stats - Top Section */}
+        <div className="mb-6">
+          <GrowthStats />
+        </div>
+
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Left Column */}
           <div className="space-y-6">
