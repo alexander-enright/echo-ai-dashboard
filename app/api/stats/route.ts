@@ -21,73 +21,104 @@ export async function GET(request: NextRequest) {
     const userData = me.data
     const currentFollowers = userData.public_metrics?.followers_count || 0
     
-    // Get daily posts generated (last 24 hours)
+    // Calculate time ranges
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
     
-    const { data: dailyPosts, error: postsError } = await supabase
+    const lastWeek = new Date()
+    lastWeek.setDate(lastWeek.getDate() - 7)
+    
+    // Get ALL posts generated (not just posted to X) - last 24 hours
+    const { data: dailyPostsGenerated, error: postsGenError } = await supabase
+      .from('scheduled_quotes')
+      .select('*')
+      .gte('created_at', yesterday.toISOString())
+    
+    if (postsGenError) console.error('Posts generated error:', postsGenError)
+    
+    // Get posts actually posted to X - last 24 hours
+    const { data: dailyPostsPosted, error: postsPostedError } = await supabase
       .from('scheduled_quotes')
       .select('*')
       .gte('created_at', yesterday.toISOString())
       .eq('posted_to_x', true)
     
-    if (postsError) console.error('Posts error:', postsError)
+    if (postsPostedError) console.error('Posts posted error:', postsPostedError)
     
-    // Get engagement from retweet_history
-    const { data: recentEngagements, error: engagementError } = await supabase
+    // Get retweets made - last 24 hours
+    const { data: dailyRetweets, error: retweetsError } = await supabase
       .from('retweet_history')
       .select('*')
       .gte('retweeted_at', yesterday.toISOString())
     
-    if (engagementError) console.error('Engagement error:', engagementError)
+    if (retweetsError) console.error('Retweets error:', retweetsError)
     
-    // Get engagement logs
-    const { data: engagementLogs, error: logsError } = await supabase
+    // Get engagement logs (likes, comments) - last 24 hours
+    const { data: dailyEngagements, error: engagementsError } = await supabase
       .from('engagement_logs')
       .select('*')
       .gte('created_at', yesterday.toISOString())
     
-    if (logsError) console.error('Logs error:', logsError)
+    if (engagementsError) console.error('Engagements error:', engagementsError)
     
-    // Calculate stats
-    const dailyPostsGenerated = dailyPosts?.length || 0
-    const totalInteractions = (recentEngagements?.length || 0) + (engagementLogs?.length || 0)
+    // Get posts from regular posts table too
+    const { data: regularPosts, error: regularError } = await supabase
+      .from('posts')
+      .select('*')
+      .gte('posted_at', yesterday.toISOString())
     
-    // Engagement rate (interactions / followers * 100)
+    if (regularError) console.error('Regular posts error:', regularError)
+    
+    // Calculate accurate stats
+    const totalPostsGenerated = (dailyPostsGenerated?.length || 0) + (regularPosts?.length || 0)
+    const totalPostsPosted = (dailyPostsPosted?.length || 0) + (regularPosts?.length || 0)
+    const totalRetweets = dailyRetweets?.length || 0
+    const totalEngagements = dailyEngagements?.length || 0
+    
+    // Total interactions = retweets + likes + comments
+    const totalInteractions = totalRetweets + totalEngagements
+    
+    // Engagement rate = (interactions / followers) * 100
     const engagementRate = currentFollowers > 0 
       ? ((totalInteractions / currentFollowers) * 100).toFixed(2)
       : '0.00'
     
-    // Get last 7 days data for trend
-    const lastWeek = new Date()
-    lastWeek.setDate(lastWeek.getDate() - 7)
-    
+    // Get weekly totals
     const { data: weeklyPosts } = await supabase
       .from('scheduled_quotes')
-      .select('created_at, posted_to_x')
+      .select('created_at')
       .gte('created_at', lastWeek.toISOString())
     
-    const { data: weeklyEngagements } = await supabase
-      .from('engagement_logs')
-      .select('created_at, action')
-      .gte('created_at', lastWeek.toISOString())
+    const { data: weeklyRetweets } = await supabase
+      .from('retweet_history')
+      .select('retweeted_at')
+      .gte('retweeted_at', lastWeek.toISOString())
     
-    // Calculate followers gained (requires storing historical data)
-    // For now, we'll estimate based on recent activity
-    const dailyEngagements = engagementLogs?.length || 0
-    const estimatedFollowersGained = Math.floor(dailyEngagements * 0.5) // Estimate 0.5 followers per engagement
+    // For followers gained, we need to compare with yesterday's count
+    // Since we don't store historical data, we'll show "N/A" or calculate from activity
+    // A rough estimate: 1-3% of interactions convert to followers
+    const estimatedFollowersGained = Math.floor(totalInteractions * 0.02)
     
     return NextResponse.json({
       followers: {
         current: currentFollowers,
         gained: estimatedFollowersGained,
+        note: 'Estimated based on engagement activity'
       },
-      dailyPosts: dailyPostsGenerated,
+      dailyPosts: {
+        generated: totalPostsGenerated,
+        posted: totalPostsPosted,
+      },
       engagementRate: `${engagementRate}%`,
       totalInteractions: totalInteractions,
+      breakdown: {
+        retweets: totalRetweets,
+        likes: dailyEngagements?.filter(e => e.action === 'like').length || 0,
+        comments: dailyEngagements?.filter(e => e.action === 'comment').length || 0,
+      },
       weeklyActivity: {
         posts: weeklyPosts?.length || 0,
-        engagements: weeklyEngagements?.length || 0,
+        retweets: weeklyRetweets?.length || 0,
       },
       username: userData.username,
     })
