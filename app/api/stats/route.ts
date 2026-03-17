@@ -28,14 +28,22 @@ export async function GET(request: NextRequest) {
     const lastWeek = new Date()
     lastWeek.setDate(lastWeek.getDate() - 7)
     
-    // Get posts actually posted to X - last 24 hours
-    const { data: dailyPosts, error: postsError } = await supabase
+    // Get posts from scheduled_quotes - last 24 hours
+    const { data: scheduledPosts, error: scheduledError } = await supabase
       .from('scheduled_quotes')
       .select('*')
       .gte('posted_at', yesterday.toISOString())
       .eq('posted_to_x', true)
     
-    if (postsError) console.error('Posts error:', postsError)
+    if (scheduledError) console.error('Scheduled posts error:', scheduledError)
+    
+    // Get posts from regular posts table - last 24 hours
+    const { data: regularPosts, error: regularError } = await supabase
+      .from('posts')
+      .select('*')
+      .gte('posted_at', yesterday.toISOString())
+    
+    if (regularError) console.error('Regular posts error:', regularError)
     
     // Get retweets made - last 24 hours
     const { data: dailyRetweets, error: retweetsError } = await supabase
@@ -54,7 +62,7 @@ export async function GET(request: NextRequest) {
     if (engagementsError) console.error('Engagements error:', engagementsError)
     
     // Calculate accurate stats
-    const totalPosts = dailyPosts?.length || 0
+    const totalPosts = (scheduledPosts?.length || 0) + (regularPosts?.length || 0)
     const totalRetweets = dailyRetweets?.length || 0
     const totalEngagements = dailyEngagements?.length || 0
     
@@ -67,11 +75,16 @@ export async function GET(request: NextRequest) {
       : '0.00'
     
     // Get weekly totals
-    const { data: weeklyPosts } = await supabase
+    const { data: weeklyScheduledPosts } = await supabase
       .from('scheduled_quotes')
       .select('posted_at')
       .gte('posted_at', lastWeek.toISOString())
       .eq('posted_to_x', true)
+    
+    const { data: weeklyRegularPosts } = await supabase
+      .from('posts')
+      .select('posted_at')
+      .gte('posted_at', lastWeek.toISOString())
     
     const { data: weeklyRetweets } = await supabase
       .from('retweet_history')
@@ -89,7 +102,7 @@ export async function GET(request: NextRequest) {
       },
       engagementRate: `${engagementRate}%`,
       weeklyActivity: {
-        posts: weeklyPosts?.length || 0,
+        posts: (weeklyScheduledPosts?.length || 0) + (weeklyRegularPosts?.length || 0),
         retweets: weeklyRetweets?.length || 0,
       },
       username: userData.username,
