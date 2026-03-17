@@ -99,10 +99,10 @@ export default function SportsFeed() {
       if (data.success) {
         setMessage(`Retweeted! (${data.actions.join(', ')})`)
       } else {
-        setMessage(data.error || 'Failed to retweet')
+        setMessage(`Failed: ${data.error || 'Unknown error'}`)
       }
-    } catch (error) {
-      setMessage('Error retweeting')
+    } catch (error: any) {
+      setMessage(`Error: ${error.message || 'Failed to retweet'}`)
     }
   }
 

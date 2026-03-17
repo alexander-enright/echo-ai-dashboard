@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const results: string[] = []
+    const errors: string[] = []
 
     // Like the tweet
     try {
@@ -25,8 +26,9 @@ export async function POST(request: NextRequest) {
         created_at: new Date().toISOString(),
       })
       results.push('liked')
-    } catch (e) {
-      console.log('Like failed or already liked')
+    } catch (e: any) {
+      console.error('Like error:', e.message || e)
+      errors.push(`like failed: ${e.message || 'unknown error'}`)
     }
 
     // Retweet
@@ -38,8 +40,9 @@ export async function POST(request: NextRequest) {
         created_at: new Date().toISOString(),
       })
       results.push('retweeted')
-    } catch (e) {
-      console.log('Retweet failed or already retweeted')
+    } catch (e: any) {
+      console.error('Retweet error:', e.message || e)
+      errors.push(`retweet failed: ${e.message || 'unknown error'}`)
     }
 
     // Optional comment
@@ -56,14 +59,30 @@ export async function POST(request: NextRequest) {
           })
           results.push('commented')
         }
-      } catch (e) {
-        console.log('Comment failed')
+      } catch (e: any) {
+        console.error('Comment error:', e.message || e)
+        errors.push(`comment failed: ${e.message || 'unknown error'}`)
       }
     }
 
-    return NextResponse.json({ success: true, actions: results })
-  } catch (error) {
+    if (errors.length > 0 && results.length === 0) {
+      return NextResponse.json({ 
+        success: false, 
+        error: errors.join(', '),
+        actions: results 
+      }, { status: 500 })
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      actions: results,
+      warnings: errors.length > 0 ? errors : undefined
+    })
+  } catch (error: any) {
     console.error('Error in retweet action:', error)
-    return NextResponse.json({ error: 'Failed to complete actions' }, { status: 500 })
+    return NextResponse.json({ 
+      success: false,
+      error: error.message || 'Failed to complete actions' 
+    }, { status: 500 })
   }
 }
