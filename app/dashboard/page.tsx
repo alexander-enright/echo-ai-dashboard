@@ -28,8 +28,8 @@ export default function Home() {
 
           {/* Right Column */}
           <div className="space-y-6">
-            <ActivityFeed />
             <TargetedRetweet />
+            <ActivityFeed />
             <RetweetAutomation />
           </div>
         </div>
