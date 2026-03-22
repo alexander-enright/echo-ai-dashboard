@@ -121,6 +121,16 @@ export async function updateScheduledQuote(id: string, updates: any) {
   return data
 }
 
+export async function deleteScheduledQuote(id: string) {
+  const { error } = await getSupabaseClient()
+    .from('scheduled_quotes')
+    .delete()
+    .eq('id', id)
+  
+  if (error) throw error
+  return { success: true }
+}
+
 // Retweet History
 export async function saveRetweetHistory(retweet: any) {
   const { data, error } = await getSupabaseClient()
