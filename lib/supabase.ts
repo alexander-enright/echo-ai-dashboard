@@ -1,14 +1,25 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { Post, Comment, EngagementLog } from '@/types'
 
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_ANON_KEY!
+let supabaseClient: SupabaseClient | null = null
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+function getSupabaseClient(): SupabaseClient {
+  if (!supabaseClient) {
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseKey = process.env.SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set')
+    }
+    
+    supabaseClient = createClient(supabaseUrl, supabaseKey)
+  }
+  return supabaseClient
+}
 
 // Posts
 export async function savePost(post: Omit<Post, 'id'>) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('posts')
     .insert([post])
     .select()
@@ -19,7 +30,7 @@ export async function savePost(post: Omit<Post, 'id'>) {
 }
 
 export async function getRecentPosts(limit: number = 10) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('posts')
     .select('*')
     .order('posted_at', { ascending: false })
@@ -31,7 +42,7 @@ export async function getRecentPosts(limit: number = 10) {
 
 // Comments
 export async function saveComment(comment: Omit<Comment, 'id'>) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('comments')
     .insert([comment])
     .select()
@@ -42,7 +53,7 @@ export async function saveComment(comment: Omit<Comment, 'id'>) {
 }
 
 export async function getRecentComments(limit: number = 10) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('comments')
     .select('*')
     .order('created_at', { ascending: false })
@@ -54,7 +65,7 @@ export async function getRecentComments(limit: number = 10) {
 
 // Engagement Logs
 export async function saveEngagementLog(log: Omit<EngagementLog, 'id'>) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('engagement_logs')
     .insert([log])
     .select()
@@ -65,7 +76,7 @@ export async function saveEngagementLog(log: Omit<EngagementLog, 'id'>) {
 }
 
 export async function getRecentEngagementLogs(limit: number = 10) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('engagement_logs')
     .select('*')
     .order('created_at', { ascending: false })
@@ -77,7 +88,7 @@ export async function getRecentEngagementLogs(limit: number = 10) {
 
 // Scheduled Quotes
 export async function saveScheduledQuote(quote: any) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('scheduled_quotes')
     .insert([quote])
     .select()
@@ -88,7 +99,7 @@ export async function saveScheduledQuote(quote: any) {
 }
 
 export async function getScheduledQuotes(limit: number = 50) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('scheduled_quotes')
     .select('*')
     .order('created_at', { ascending: false })
@@ -99,7 +110,7 @@ export async function getScheduledQuotes(limit: number = 50) {
 }
 
 export async function updateScheduledQuote(id: string, updates: any) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('scheduled_quotes')
     .update(updates)
     .eq('id', id)
@@ -112,7 +123,7 @@ export async function updateScheduledQuote(id: string, updates: any) {
 
 // Retweet History
 export async function saveRetweetHistory(retweet: any) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('retweet_history')
     .insert([retweet])
     .select()
@@ -123,7 +134,7 @@ export async function saveRetweetHistory(retweet: any) {
 }
 
 export async function getRetweetHistory(limit: number = 100) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('retweet_history')
     .select('*')
     .order('retweeted_at', { ascending: false })
@@ -135,7 +146,7 @@ export async function getRetweetHistory(limit: number = 100) {
 
 // Automation Settings
 export async function getAutomationSetting(name: string): Promise<boolean> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('automation_settings')
     .select('setting_value')
     .eq('setting_name', name)
@@ -149,7 +160,7 @@ export async function getAutomationSetting(name: string): Promise<boolean> {
 }
 
 export async function setAutomationSetting(name: string, value: boolean) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from('automation_settings')
     .upsert({
       setting_name: name,
