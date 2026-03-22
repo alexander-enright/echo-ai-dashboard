@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { TwitterApi } from 'twitter-api-v2'
-import { supabase } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = createServerSupabaseClient()
+    
     // Get user's X profile
     const userClient = new TwitterApi({
       appKey: process.env.X_API_KEY!,
