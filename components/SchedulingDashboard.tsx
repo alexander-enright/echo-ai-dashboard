@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Calendar, List, Clock, Edit2, Trash2, Copy, CheckCircle, XCircle, AlertCircle, ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react'
+import { Calendar, List, Clock, Edit2, Trash2, Copy, CheckCircle, XCircle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface ScheduledQuote {
   id: string
@@ -19,9 +19,37 @@ interface ScheduledQuote {
 type ViewMode = 'calendar' | 'list'
 type FilterStatus = 'all' | 'scheduled' | 'published' | 'failed'
 
+// Safe date parsing helper
+function safeDate(dateString: string | null | undefined): Date | null {
+  if (!dateString) return null
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return null
+    return date
+  } catch {
+    return null
+  }
+}
+
+function formatDateSafe(dateString: string | null | undefined): string {
+  const date = safeDate(dateString)
+  if (!date) return 'Invalid date'
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function getDateKey(date: Date): string {
+  return date.toISOString().split('T')[0]
+}
+
 export default function SchedulingDashboard() {
   const [quotes, setQuotes] = useState<ScheduledQuote[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('calendar')
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
@@ -35,18 +63,39 @@ export default function SchedulingDashboard() {
 
   const fetchQuotes = async () => {
     try {
+      setError(null)
       const res = await fetch('/api/scheduledQuotes')
-      const data = await res.json()
-      if (data.quotes) {
-        // Add status field based on posted_to_x
-        const quotesWithStatus = data.quotes.map((q: ScheduledQuote) => ({
-          ...q,
-          status: q.posted_to_x ? 'published' : 'scheduled'
-        }))
-        setQuotes(quotesWithStatus)
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`)
       }
-    } catch (error) {
+      const data = await res.json()
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+      
+      if (data.quotes) {
+        // Add status field based on posted_to_x, with safe date validation
+        const quotesWithStatus = data.quotes
+          .filter((q: any) => q && q.id) // Filter out null/invalid entries
+          .map((q: any) => ({
+            ...q,
+            status: q.posted_to_x ? 'published' : 'scheduled'
+          }))
+          .sort((a: any, b: any) => {
+            // Sort by scheduled_time descending
+            const dateA = safeDate(a.scheduled_time)
+            const dateB = safeDate(b.scheduled_time)
+            if (!dateA || !dateB) return 0
+            return dateB.getTime() - dateA.getTime()
+          })
+        setQuotes(quotesWithStatus)
+      } else {
+        setQuotes([])
+      }
+    } catch (error: any) {
       console.error('Error fetching quotes:', error)
+      setError(error.message || 'Failed to load scheduled posts')
     }
     setLoading(false)
   }
@@ -58,10 +107,13 @@ export default function SchedulingDashboard() {
         setQuotes(quotes.filter(q => q.id !== id))
         setMessage('Quote deleted successfully')
         setTimeout(() => setMessage(''), 3000)
+      } else {
+        throw new Error('Delete failed')
       }
     } catch (error) {
       console.error('Error deleting quote:', error)
       setMessage('Failed to delete quote')
+      setTimeout(() => setMessage(''), 3000)
     }
     setShowDeleteConfirm(null)
   }
@@ -82,10 +134,13 @@ export default function SchedulingDashboard() {
         fetchQuotes()
         setMessage('Quote duplicated successfully')
         setTimeout(() => setMessage(''), 3000)
+      } else {
+        throw new Error('Duplicate failed')
       }
     } catch (error) {
       console.error('Error duplicating quote:', error)
       setMessage('Failed to duplicate quote')
+      setTimeout(() => setMessage(''), 3000)
     }
   }
 
@@ -101,10 +156,13 @@ export default function SchedulingDashboard() {
         setEditingQuote(null)
         setMessage('Quote rescheduled successfully')
         setTimeout(() => setMessage(''), 3000)
+      } else {
+        throw new Error('Reschedule failed')
       }
     } catch (error) {
       console.error('Error rescheduling quote:', error)
       setMessage('Failed to reschedule quote')
+      setTimeout(() => setMessage(''), 3000)
     }
   }
 
@@ -116,10 +174,11 @@ export default function SchedulingDashboard() {
 
   // Get quotes for selected month in calendar view
   const getQuotesForDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = getDateKey(date)
     return filteredQuotes.filter(q => {
-      const quoteDate = new Date(q.scheduled_time).toISOString().split('T')[0]
-      return quoteDate === dateStr
+      const quoteDate = safeDate(q.scheduled_time)
+      if (!quoteDate) return false
+      return getDateKey(quoteDate) === dateStr
     })
   }
 
@@ -160,15 +219,6 @@ export default function SchedulingDashboard() {
     return days
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
-
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'published':
@@ -194,6 +244,24 @@ export default function SchedulingDashboard() {
   const days = generateCalendarDays()
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+  if (error) {
+    return (
+      <div className="rounded-xl bg-gray-800 p-6 shadow-lg">
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
+          <h3 className="text-lg font-semibold text-white mb-2">Error Loading Posts</h3>
+          <p className="text-sm text-gray-400 mb-4">{error}</p>
+          <button
+            onClick={fetchQuotes}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-xl bg-gray-800 p-6 shadow-lg">
@@ -343,9 +411,9 @@ export default function SchedulingDashboard() {
                                 ? 'bg-red-500/20 text-red-300'
                                 : 'bg-yellow-500/20 text-yellow-300'
                             }`}
-                            title={`"${quote.quote_text.slice(0, 50)}..." — ${quote.author}`}
+                            title={`"${quote.quote_text?.slice(0, 50)}..." — ${quote.author}`}
                           >
-                            "{quote.quote_text.slice(0, 20)}..."
+                            "{quote.quote_text?.slice(0, 20)}..."
                           </div>
                         ))}
                         {dayQuotes.length > 2 && (
@@ -400,14 +468,14 @@ export default function SchedulingDashboard() {
                             {(quote.status || 'scheduled').charAt(0).toUpperCase() + (quote.status || 'scheduled').slice(1)}
                           </span>
                           <span className="text-xs text-gray-500">
-                            {formatDate(quote.scheduled_time)}
+                            {formatDateSafe(quote.scheduled_time)}
                           </span>
                         </div>
                         
                         <blockquote className="text-sm text-white mb-1">
-                          "{quote.quote_text}"
+                          "{quote.quote_text || 'No text'}"
                         </blockquote>
-                        <p className="text-xs text-gray-400">— {quote.author}</p>
+                        <p className="text-xs text-gray-400">— {quote.author || 'Unknown'}</p>
                         
                         {quote.tweet_id && (
                           <p className="text-xs text-gray-500 mt-2">
@@ -458,15 +526,15 @@ export default function SchedulingDashboard() {
             <h3 className="text-lg font-semibold text-white mb-4">Reschedule Post</h3>
             <div className="mb-4">
               <blockquote className="text-sm text-white mb-2 italic">
-                "{editingQuote.quote_text}"
+                "{editingQuote.quote_text || 'No text'}"
               </blockquote>
-              <p className="text-xs text-gray-400">— {editingQuote.author}</p>
+              <p className="text-xs text-gray-400">— {editingQuote.author || 'Unknown'}</p>
             </div>
             <div className="mb-6">
               <label className="block text-sm text-gray-400 mb-2">New Schedule Time</label>
               <input
                 type="datetime-local"
-                defaultValue={editingQuote.scheduled_time.slice(0, 16)}
+                defaultValue={editingQuote.scheduled_time?.slice(0, 16) || ''}
                 onChange={(e) => {
                   const newDate = new Date(e.target.value).toISOString()
                   handleReschedule(editingQuote, newDate)
