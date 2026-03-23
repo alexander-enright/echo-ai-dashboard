@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,25 +12,37 @@ export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies();
     
-    // Verify user is authenticated
-    const supabase = createClient(
+    // Create SSR-compatible Supabase client
+    const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
     );
 
-    const accessToken = cookieStore.get('sb-access-token')?.value;
+    const { data: { session } } = await supabase.auth.getSession();
     
-    if (!accessToken) {
+    if (!session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    const user = session.user;
     
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

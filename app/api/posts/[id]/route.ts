@@ -5,14 +5,17 @@ import { createServerClient } from '@supabase/ssr';
 export const dynamic = 'force-dynamic';
 
 /**
- * POST /api/auth/logout
- * Signs out the user and clears session cookies
+ * DELETE /api/posts/[id]
+ * Deletes a post for the authenticated user
  */
-export async function POST(request: NextRequest) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const cookieStore = cookies();
+    const { id } = params;
     
-    // Create Supabase client
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -31,16 +34,27 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Sign out from Supabase
-    await supabase.auth.signOut();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', session.user.id);
+
+    if (error) {
+      console.error('[Posts] Delete error:', error);
+      return NextResponse.json({ error: 'Failed to delete post' }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('[Logout] Error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to sign out' },
-      { status: 500 }
-    );
+    console.error('[Posts] Error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

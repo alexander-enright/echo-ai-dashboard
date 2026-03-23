@@ -6,8 +6,9 @@ export const runtime = 'nodejs';
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { Twitter, User, AlertTriangle, Loader2, CheckCircle2, X, ArrowLeft } from 'lucide-react';
+import { Twitter, User, AlertTriangle, Loader2, CheckCircle2, X, ArrowLeft, LogOut } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface XAccount {
   id: string;
@@ -20,6 +21,7 @@ interface XAccount {
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
+  const router = useRouter();
   const [accounts, setAccounts] = useState<XAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -105,6 +107,11 @@ export default function SettingsPage() {
     } catch (error: any) {
       setError(error.message || 'Failed to disconnect');
     }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/');
   };
 
   return (
@@ -248,7 +255,11 @@ export default function SettingsPage() {
             </div>
             
             <div className="pt-4 border-t border-gray-800">
-              <button onClick={signOut} className="text-sm text-red-400 hover:text-red-300">
+              <button 
+                onClick={handleSignOut} 
+                className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 px-3 py-2 rounded border border-red-500/30 hover:border-red-500/50 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
                 Sign out
               </button>
             </div>

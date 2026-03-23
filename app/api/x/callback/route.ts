@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { exchangeCodeForToken, fetchUserProfile } from '@/lib/twitter-oauth';
 import { saveUserXAccount } from '@/lib/user-x-accounts';
-import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,22 +48,35 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user from session
-    const supabase = createClient(
+    // Create SSR-compatible Supabase client
+    const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
     );
 
-    const accessToken = cookieStore.get('sb-access-token')?.value;
+    // Get session using Supabase SSR
+    const { data: { session } } = await supabase.auth.getSession();
     
-    if (!accessToken) {
+    if (!session) {
       return NextResponse.redirect(
         new URL('/login?error=not_logged_in', process.env.NEXT_PUBLIC_APP_URL!)
       );
     }
-
-    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    
+    const user = session.user;
     
     if (!user) {
       return NextResponse.redirect(

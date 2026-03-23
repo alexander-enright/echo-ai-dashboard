@@ -33,7 +33,9 @@ import {
   GripVertical,
   Copy,
   Edit2,
-  Trash2
+  Trash2,
+  Loader2,
+  LogOut
 } from 'lucide-react'
 import {
   DndContext,
@@ -114,10 +116,15 @@ const mockPosts: Post[] = [
   }
 ]
 
-const connectedAccounts: ConnectedAccount[] = [
-  { id: '1', platform: 'twitter', handle: '@alexenright', isActive: true, followerCount: 2847 },
-  { id: '2', platform: 'linkedin', handle: 'Alex Enright', isActive: false, followerCount: 1523 },
-]
+// Real connected accounts fetched from API
+interface ConnectedAccount {
+  id: string
+  platform: 'twitter' | 'linkedin'
+  handle: string
+  avatar?: string
+  isActive: boolean
+  followerCount: number
+}
 
 // Safe date parsing helper
 function safeDate(dateString: string | null | undefined): Date | null {
@@ -133,6 +140,16 @@ function safeDate(dateString: string | null | undefined): Date | null {
 
 function getDateKey(date: Date): string {
   return date.toISOString().split('T')[0]
+}
+
+// Convert date to local ISO string for datetime-local input
+function toLocalISOString(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
 // Draggable Post Card Component
@@ -232,16 +249,96 @@ function DroppableDay({
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'queue' | 'calendar' | 'analytics' | 'settings'>('queue')
-  const [posts, setPosts] = useState<Post[]>(mockPosts)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true)
   const [showComposer, setShowComposer] = useState(false)
   const [composerText, setComposerText] = useState('')
-  const [selectedAccount, setSelectedAccount] = useState<string>('1')
+  const [selectedAccount, setSelectedAccount] = useState<string>('')
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [editingPost, setEditingPost] = useState<Post | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
   const [message, setMessage] = useState('')
+  
+  // Real connected accounts from API
+  const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(true)
+  
+  // Composer scheduling state
+  const [scheduleDate, setScheduleDate] = useState<string>('')
+  const [scheduleTime, setScheduleTime] = useState<string>('')
+  const [postNow, setPostNow] = useState<boolean>(false)
+  const [isPosting, setIsPosting] = useState<boolean>(false)
+
+  // Fetch connected accounts on mount
+  useEffect(() => {
+    async function fetchAccounts() {
+      try {
+        const res = await fetch('/api/x/profile')
+        const data = await res.json()
+        
+        if (data.accounts && data.accounts.length > 0) {
+          // Map API response to ConnectedAccount format
+          const accounts: ConnectedAccount[] = data.accounts.map((acc: any) => ({
+            id: acc.x_user_id,
+            platform: 'twitter' as const,
+            handle: `@${acc.x_username}`,
+            avatar: acc.profile_image_url,
+            isActive: acc.is_active,
+            followerCount: acc.followers_count || 0,
+          }))
+          setConnectedAccounts(accounts)
+          
+          // Auto-select first account
+          if (accounts.length > 0) {
+            setSelectedAccount(accounts[0].id)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch accounts:', error)
+      } finally {
+        setIsLoadingAccounts(false)
+      }
+    }
+    
+    fetchAccounts()
+  }, [])
+
+  // Fetch posts on mount
+  useEffect(() => {
+    async function fetchPosts() {
+      try {
+        setIsLoadingPosts(true)
+        const res = await fetch('/api/posts')
+        const data = await res.json()
+        
+        if (data.posts) {
+          // Convert string dates to Date objects
+          const formattedPosts = data.posts.map((p: any) => ({
+            ...p,
+            scheduledFor: p.scheduled_for ? new Date(p.scheduled_for) : undefined,
+            scheduled_for: p.scheduled_for ? new Date(p.scheduled_for) : undefined,
+            created_at: p.created_at ? new Date(p.created_at) : undefined,
+            updated_at: p.updated_at ? new Date(p.updated_at) : undefined,
+            engagement: p.engagement_likes > 0 ? {
+              likes: p.engagement_likes,
+              retweets: p.engagement_retweets,
+              replies: p.engagement_replies,
+              impressions: p.engagement_impressions
+            } : undefined
+          }))
+          setPosts(formattedPosts)
+        }
+      } catch (error) {
+        console.error('Failed to fetch posts:', error)
+      } finally {
+        setIsLoadingPosts(false)
+      }
+    }
+    
+    fetchPosts()
+  }, [])
 
   const scheduledPosts = posts.filter(p => p.status === 'scheduled')
   const publishedPosts = posts.filter(p => p.status === 'published')
@@ -250,30 +347,150 @@ export default function Dashboard() {
   const characterCount = composerText.length
   const maxCharacters = 280
 
-  const handleSchedulePost = () => {
+  const handleSchedulePost = async () => {
     if (!composerText.trim()) return
-    
-    const newPost: Post = {
-      id: Date.now().toString(),
-      content: composerText,
-      status: 'scheduled',
-      scheduledFor: new Date(Date.now() + 3600000),
-      platform: 'twitter',
-      account: '@alexenright'
+    if (!selectedAccount) {
+      setMessage('Please select an account to post from')
+      return
     }
     
-    setPosts([newPost, ...posts])
-    setComposerText('')
-    setShowComposer(false)
-    setMessage('Post scheduled successfully')
-    setTimeout(() => setMessage(''), 3000)
+    setIsPosting(true)
+    
+    const selectedAccountData = connectedAccounts.find(a => a.id === selectedAccount)
+    
+    if (postNow) {
+      // Post immediately to X
+      try {
+        const res = await fetch('/api/x/post', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            xUserId: selectedAccount,
+            text: composerText,
+          }),
+        })
+        
+        const data = await res.json()
+        
+        if (!res.ok) {
+          setIsPosting(false)
+          setMessage(`Error: ${data.error}`)
+          return
+        }
+        
+        // Save to database as published
+        const saveRes = await fetch('/api/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: composerText,
+            status: 'published',
+            scheduled_for: new Date().toISOString(),
+            platform: 'twitter',
+            x_user_id: selectedAccount,
+          }),
+        });
+        
+        const saveData = await saveRes.json();
+        
+        if (!saveRes.ok) {
+          setIsPosting(false);
+          setMessage(`Error saving post: ${saveData.error}`);
+          return;
+        }
+        
+        // Add to local posts
+        const newPost: Post = {
+          id: saveData.post.id,
+          content: composerText,
+          status: 'published',
+          scheduledFor: new Date(),
+          platform: 'twitter',
+          account: selectedAccountData?.handle || '@unknown'
+        };
+        
+        setPosts([newPost, ...posts]);
+        setComposerText('');
+        setPostNow(false);
+        setShowComposer(false);
+        setIsPosting(false);
+        setMessage('Posted to X successfully!');
+        setTimeout(() => setMessage(''), 3000);
+        
+      } catch (error: any) {
+        setIsPosting(false);
+        setMessage(`Error posting: ${error.message}`);
+      }
+    } else {
+      // Schedule for later - save to database
+      let scheduledFor: Date;
+      if (scheduleDate && scheduleTime) {
+        scheduledFor = new Date(`${scheduleDate}T${scheduleTime}`);
+      } else {
+        scheduledFor = new Date(Date.now() + 3600000);
+      }
+      
+      try {
+        const saveRes = await fetch('/api/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: composerText,
+            status: 'scheduled',
+            scheduled_for: scheduledFor.toISOString(),
+            platform: 'twitter',
+            x_user_id: selectedAccount,
+          }),
+        });
+        
+        const saveData = await saveRes.json();
+        
+        if (!saveRes.ok) {
+          setIsPosting(false);
+          setMessage(`Error saving post: ${saveData.error}`);
+          return;
+        }
+        
+        const newPost: Post = {
+          id: saveData.post.id,
+          content: composerText,
+          status: 'scheduled',
+          scheduledFor,
+          platform: 'twitter',
+          account: selectedAccountData?.handle || '@unknown'
+        };
+        
+        setPosts([newPost, ...posts]);
+        setComposerText('');
+        setScheduleDate('');
+        setScheduleTime('');
+        setPostNow(false);
+        setShowComposer(false);
+        setIsPosting(false);
+        setMessage('Post scheduled successfully');
+        setTimeout(() => setMessage(''), 3000);
+      } catch (error: any) {
+        setIsPosting(false);
+        setMessage(`Error scheduling: ${error.message}`);
+      }
+    }
   }
 
-  const handleDelete = (id: string) => {
-    setPosts(posts.filter(p => p.id !== id))
-    setShowDeleteConfirm(null)
-    setMessage('Post deleted')
-    setTimeout(() => setMessage(''), 3000)
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+      
+      if (res.ok) {
+        setPosts(posts.filter(p => p.id !== id));
+        setMessage('Post deleted');
+      } else {
+        setMessage('Failed to delete post');
+      }
+    } catch (error: any) {
+      setMessage(`Error: ${error.message}`);
+    }
+    setShowDeleteConfirm(null);
+    setTimeout(() => setMessage(''), 3000);
   }
 
   const handleDuplicate = (post: Post) => {
@@ -462,6 +679,19 @@ export default function Dashboard() {
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">X Account</h3>
           <XAccountConnection />
+          
+          {/* Log Out Button */}
+          <button
+            onClick={() => {
+              fetch('/api/auth/logout', { method: 'POST' }).then(() => {
+                window.location.href = '/';
+              });
+            }}
+            className="w-full mt-4 flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Log Out
+          </button>
         </div>
       </aside>
 
@@ -573,7 +803,11 @@ export default function Dashboard() {
               {/* Posts List View */}
               {viewMode === 'list' ? (
                 <div className="space-y-4">
-                  {posts.length === 0 ? (
+                  {isLoadingPosts ? (
+                    <div className="flex items-center justify-center py-16">
+                      <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+                    </div>
+                  ) : posts.length === 0 ? (
                     <div className="text-center py-16 bg-gray-900 rounded-2xl border border-gray-800 border-dashed">
                       <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Plus className="w-8 h-8 text-gray-500" />
@@ -1039,24 +1273,39 @@ export default function Dashboard() {
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-400 mb-2">Post to</label>
                 <div className="flex gap-3">
-                  {connectedAccounts.filter(a => a.isActive).map(account => (
-                    <button
-                      key={account.id}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-colors ${
-                        selectedAccount === account.id
-                          ? 'bg-blue-500/20 border-blue-500 text-blue-400'
-                          : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
-                      }`}
-                      onClick={() => setSelectedAccount(account.id)}
-                    >
-                      <div className={`w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold ${
-                        account.platform === 'twitter' ? 'bg-black' : 'bg-blue-700'
-                      }`}>
-                        {account.platform === 'twitter' ? '𝕏' : 'in'}
-                      </div>
-                      {account.handle}
-                    </button>
-                  ))}
+                  {isLoadingAccounts ? (
+                    <div className="text-gray-400 text-sm">Loading accounts...</div>
+                  ) : connectedAccounts.filter(a => a.isActive).length === 0 ? (
+                    <div className="text-gray-400 text-sm">
+                      No X accounts connected.{' '}
+                      <Link href="/settings" className="text-blue-400 hover:underline">
+                        Connect an account
+                      </Link>
+                    </div>
+                  ) : (
+                    connectedAccounts.filter(a => a.isActive).map(account => (
+                      <button
+                        key={account.id}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-colors ${
+                          selectedAccount === account.id
+                            ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                            : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
+                        }`}
+                        onClick={() => setSelectedAccount(account.id)}
+                      >
+                        {account.avatar ? (
+                          <img src={account.avatar} alt={account.handle} className="w-6 h-6 rounded-full" />
+                        ) : (
+                          <div className={`w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold ${
+                            account.platform === 'twitter' ? 'bg-black' : 'bg-blue-700'
+                          }`}>
+                            {account.platform === 'twitter' ? '𝕏' : 'in'}
+                          </div>
+                        )}
+                        {account.handle}
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -1086,20 +1335,38 @@ export default function Dashboard() {
 
               {/* Scheduling */}
               <div className="mt-6 p-4 bg-gray-800/50 rounded-xl border border-gray-700">
-                <div className="flex items-center gap-3 mb-3">
-                  <Clock className="w-5 h-5 text-gray-400" />
-                  <span className="font-medium text-gray-300">Schedule</span>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-gray-400" />
+                    <span className="font-medium text-gray-300">Schedule</span>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={postNow}
+                      onChange={(e) => setPostNow(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600"
+                    />
+                    <span className="text-sm text-gray-300">Post now</span>
+                  </label>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="date"
-                    className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-white focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="time"
-                    className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-white focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+                
+                {!postNow && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="date"
+                      value={scheduleDate}
+                      onChange={(e) => setScheduleDate(e.target.value)}
+                      className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-white focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="time"
+                      value={scheduleTime}
+                      onChange={(e) => setScheduleTime(e.target.value)}
+                      className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-white focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1113,10 +1380,17 @@ export default function Dashboard() {
               </button>
               <button 
                 onClick={handleSchedulePost}
-                disabled={!composerText.trim()}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-xl transition-colors"
+                disabled={!composerText.trim() || isPosting}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-xl transition-colors flex items-center gap-2"
               >
-                Schedule Post
+                {isPosting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Posting...
+                  </>
+                ) : (
+                  postNow ? 'Post Now' : 'Schedule Post'
+                )}
               </button>
             </div>
           </div>
@@ -1137,7 +1411,7 @@ export default function Dashboard() {
               <label className="block text-sm text-gray-400 mb-2">New Schedule Time</label>
               <input
                 type="datetime-local"
-                defaultValue={editingPost.scheduledFor?.toISOString().slice(0, 16) || ''}
+                defaultValue={editingPost.scheduledFor ? toLocalISOString(editingPost.scheduledFor) : ''}
                 onChange={(e) => {
                   const newDate = new Date(e.target.value)
                   handleReschedule(editingPost, newDate)

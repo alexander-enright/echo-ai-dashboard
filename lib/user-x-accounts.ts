@@ -22,14 +22,15 @@ export interface UserXAccount {
 
 /**
  * Create server-side Supabase client
- * Uses service role key for admin operations or anon key for user operations
+ * Uses SERVICE ROLE key to bypass RLS for server operations
  */
 function createServerSupabaseClient(): SupabaseClient {
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY; // Use anon key with RLS
+  // Use SERVICE ROLE key for server operations (bypasses RLS)
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set');
+    throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) must be set');
   }
 
   return createClient(supabaseUrl, supabaseKey);

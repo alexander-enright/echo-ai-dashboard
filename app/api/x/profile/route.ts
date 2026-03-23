@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies();
     
-    // Verify user is authenticated
+    // Verify user is authenticated using session
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -34,7 +34,16 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const user = session.user;
     
     if (!user) {
       return NextResponse.json(

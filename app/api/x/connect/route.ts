@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { generateAuthURL } from '@/lib/twitter-oauth';
 
 export const dynamic = 'force-dynamic';
@@ -16,37 +16,36 @@ export async function POST(request: NextRequest) {
   try {
     const cookieStore = cookies();
     
-    // Verify user is authenticated using standard Supabase client
-    const supabase = createClient(
+    // Create SSR-compatible Supabase client
+    const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.set({ name, value: '', ...options });
+          },
         },
       }
     );
 
-    // Get the session from cookies manually
-    const accessToken = cookieStore.get('sb-access-token')?.value;
+    // Get session using Supabase SSR (handles cookie names automatically)
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (!accessToken) {
+    if (sessionError || !session) {
       return NextResponse.json(
         { error: 'Unauthorized. Please log in first.' },
         { status: 401 }
       );
     }
-
-    // Set the auth token and get user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
     
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized. Please log in first.' },
-        { status: 401 }
-      );
-    }
+    const user = session.user;
 
     // Generate OAuth 2.0 URL with PKCE
     const authData = generateAuthURL();
@@ -59,9 +58,12 @@ export async function POST(request: NextRequest) {
     });
 
     // Set cookies with proper security
+    // Use secure: false for localhost development
+    const isLocalhost = process.env.NEXT_PUBLIC_APP_URL?.includes('localhost');
+    
     response.cookies.set('x_oauth_code_verifier', authData.codeVerifier, {
       httpOnly: true,
-      secure: true, // HTTPS only
+      secure: !isLocalhost, // false for localhost, true for production
       sameSite: 'lax',
       path: '/',
       maxAge: 600, // 10 minutes
@@ -69,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     response.cookies.set('x_oauth_state', authData.state, {
       httpOnly: true,
-      secure: true,
+      secure: !isLocalhost,
       sameSite: 'lax',
       path: '/',
       maxAge: 600,

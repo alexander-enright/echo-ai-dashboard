@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { getValidAccessToken, updateLastUsed } from '@/lib/user-x-accounts';
-import { postTweet } from '@/lib/twitter-oauth';
+import { getValidAccessToken } from '@/lib/user-x-accounts';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/x/post
- * Post a tweet using stored OAuth tokens
+ * Posts a tweet to X using the connected account
  * 
- * Security: User must be authenticated and own the X account
- * Automatically refreshes token if expired
+ * Body: { xUserId: string, text: string }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -36,57 +34,65 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
     
-    if (!user) {
+    if (!session) {
       return NextResponse.json(
-        { error: 'Unauthorized. Please log in.' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Get request body
-    const { text, xUserId } = await request.json();
-
-    // Validate input
-    if (!text || typeof text !== 'string') {
+    const user = session.user;
+    
+    if (!user) {
       return NextResponse.json(
-        { error: 'Tweet text is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
-    if (text.length > 280) {
+    const { xUserId, text } = await request.json();
+
+    if (!xUserId || !text) {
       return NextResponse.json(
-        { error: 'Tweet exceeds 280 characters' },
+        { error: 'Missing xUserId or text' },
         { status: 400 }
       );
     }
-
-    if (!xUserId) {
-      return NextResponse.json(
-        { error: 'xUserId is required' },
-        { status: 400 }
-      );
-    }
-
-    console.log('[Post] User:', user.id.substring(0, 8), 'Posting to X account:', xUserId);
 
     // Get valid access token (auto-refreshes if expired)
     const { accessToken } = await getValidAccessToken(user.id, xUserId);
 
-    // Post the tweet
-    const result = await postTweet(accessToken, text);
+    // Post to X API
+    console.log('[X API] Posting tweet...');
+    
+    const response = await fetch('https://api.twitter.com/2/tweets', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+    });
 
-    // Update last_used timestamp
-    await updateLastUsed(user.id, xUserId);
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('[X API] Post tweet error:', error);
+      return NextResponse.json(
+        { error: error.detail || 'Failed to post tweet' },
+        { status: response.status }
+      );
+    }
 
-    console.log('[Post] Tweet posted:', result.tweetId);
+    const data = await response.json();
+    
+    console.log('[X API] Tweet posted:', data.data.id);
 
     return NextResponse.json({
       success: true,
-      tweetId: result.tweetId,
-      text: result.text,
+      tweetId: data.data.id,
+      text: data.data.text,
     });
 
   } catch (error: any) {
