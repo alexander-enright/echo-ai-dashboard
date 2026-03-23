@@ -84,6 +84,7 @@ export async function GET(request: NextRequest) {
       xUsername: profile.username,
       xDisplayName: profile.displayName,
       profileImageUrl: profile.profileImageUrl,
+      followersCount: profile.followersCount,
       accessToken: tokenData.accessToken,
       refreshToken: tokenData.refreshToken,
       expiresIn: tokenData.expiresIn,
