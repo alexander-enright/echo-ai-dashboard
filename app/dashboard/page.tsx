@@ -48,9 +48,8 @@ import {
   DragEndEvent,
   DragStartEvent,
 } from '@dnd-kit/core'
+import { XAccountConnection } from './components/XAccountConnection'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-
-const supabase = createClientComponentClient()
 
 // Types
 interface Post {
@@ -461,34 +460,8 @@ export default function Dashboard() {
 
         {/* Connected Accounts */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Accounts</h3>
-          <div className="space-y-2">
-            {connectedAccounts.map(account => (
-              <div 
-                key={account.id}
-                className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
-                  selectedAccount === account.id ? 'bg-gray-800' : 'hover:bg-gray-800/50'
-                }`}
-                onClick={() => setSelectedAccount(account.id)}
-              >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold ${
-                  account.platform === 'twitter' ? 'bg-black' : 'bg-blue-700'
-                }`}>
-                  {account.platform === 'twitter' ? '𝕏' : 'in'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-200 truncate">{account.handle}</p>
-                  <p className="text-xs text-gray-500">{account.followerCount.toLocaleString()} followers</p>
-                </div>
-                <div className={`w-2 h-2 rounded-full ${account.isActive ? 'bg-green-500' : 'bg-gray-600'}`} />
-              </div>
-            ))}
-          </div>
-          
-          <button className="mt-3 w-full flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-gray-200 py-2 rounded-lg hover:bg-gray-800 transition-colors">
-            <Plus className="w-4 h-4" />
-            Connect Account
-          </button>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">X Account</h3>
+          <XAccountConnection />
         </div>
       </aside>
 

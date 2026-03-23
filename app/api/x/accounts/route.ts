@@ -5,10 +5,10 @@ import { createClient } from '@supabase/supabase-js';
 export const dynamic = 'force-dynamic';
 
 /**
- * POST /api/x/disconnect
- * Disconnects a user's X account
+ * GET /api/x/accounts
+ * Returns all connected X accounts for the authenticated user
  */
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies();
     
@@ -37,36 +37,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { accountId } = await request.json();
-
-    if (!accountId) {
-      return NextResponse.json(
-        { error: 'Account ID required' },
-        { status: 400 }
-      );
-    }
-
-    // Mark account as inactive
-    const { error: dbError } = await supabase
+    // Fetch connected X accounts
+    const { data: accounts, error: dbError } = await supabase
       .from('user_x_accounts')
-      .update({ is_active: false, updated_at: new Date().toISOString() })
-      .eq('id', accountId)
-      .eq('user_id', user.id);
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
 
     if (dbError) {
-      console.error('[X Disconnect] DB error:', dbError);
+      console.error('[X Accounts] DB error:', dbError);
       return NextResponse.json(
-        { error: 'Failed to disconnect account' },
+        { error: 'Failed to fetch accounts' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ accounts: accounts || [] });
     
   } catch (error: any) {
-    console.error('[X Disconnect] Error:', error);
+    console.error('[X Accounts] Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to disconnect account' },
+      { error: error.message || 'Failed to fetch accounts' },
       { status: 500 }
     );
   }
