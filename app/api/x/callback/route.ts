@@ -4,6 +4,8 @@ import { cookies } from 'next/headers'
 import { TwitterApi } from 'twitter-api-v2'
 import { saveXAccount, logActivity } from '@/lib/supabase-server'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     // Get OAuth verifier and token from query params

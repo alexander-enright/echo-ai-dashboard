@@ -4,6 +4,8 @@ import { cookies } from 'next/headers'
 import { getXAccount } from '@/lib/supabase-server'
 import { fetchUserProfile } from '@/lib/twitter-oauth'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     // Create Supabase client

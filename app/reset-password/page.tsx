@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClientComponentClient } from '@/lib/supabase-client'
 import { ArrowLeft, Loader2, CheckCircle } from 'lucide-react'
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -85,7 +85,6 @@ export default function ResetPasswordPage() {
   if (isCallback) {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col">
-        {/* Header */}
         <div className="p-6">
           <Link
             href="/login"
@@ -96,7 +95,6 @@ export default function ResetPasswordPage() {
           </Link>
         </div>
 
-        {/* New Password Form */}
         <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
@@ -173,10 +171,8 @@ export default function ResetPasswordPage() {
     )
   }
 
-  // Otherwise show the email form
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
-      {/* Header */}
       <div className="p-6">
         <Link
           href="/login"
@@ -187,7 +183,6 @@ export default function ResetPasswordPage() {
         </Link>
       </div>
 
-      {/* Reset Password Form */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
@@ -246,5 +241,17 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-white" />
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   )
 }
