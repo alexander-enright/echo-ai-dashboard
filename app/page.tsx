@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, Sparkles, Calendar, BarChart3, Shield, Zap } from 'lucide-react'
+import { ArrowRight, Sparkles, Calendar, BarChart3, Shield, Zap, MessageSquare, Clock, TrendingUp, Bot, Send, Repeat } from 'lucide-react'
 
 export default function LandingPage() {
   return (
@@ -73,15 +73,19 @@ export default function LandingPage() {
       {/* Features Grid */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 border-t border-gray-800">
         <div className="mx-auto max-w-7xl">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-8">
               <div className="mb-4 rounded-lg bg-indigo-500/10 p-3 w-fit">
-                <Sparkles className="h-6 w-6 text-indigo-400" />
+                <Bot className="h-6 w-6 text-indigo-400" />
               </div>
               <h3 className="text-xl font-semibold text-white mb-2">AI Generated Content</h3>
-              <p className="text-gray-400">
+              <p className="text-gray-400 mb-4">
                 Never run out of ideas. Our AI generates engaging tweets tailored to your voice.
               </p>
+              <div className="text-sm text-indigo-400 flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                <span>Generate threads, single posts, or replies</span>
+              </div>
             </div>
 
             <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-8">
@@ -89,19 +93,69 @@ export default function LandingPage() {
                 <Calendar className="h-6 w-6 text-purple-400" />
               </div>
               <h3 className="text-xl font-semibold text-white mb-2">Smart Scheduling</h3>
-              <p className="text-gray-400">
+              <p className="text-gray-400 mb-4">
                 Schedule posts at optimal times. Set it and forget it.
               </p>
+              <div className="text-sm text-purple-400 flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                <span>Best time suggestions + visual calendar</span>
+              </div>
             </div>
 
             <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-8">
               <div className="mb-4 rounded-lg bg-blue-500/10 p-3 w-fit">
-                <BarChart3 className="h-6 w-6 text-blue-400" />
+                <Send className="h-6 w-6 text-blue-400" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Growth Analytics</h3>
-              <p className="text-gray-400">
-                Track engagement, followers, and performance metrics in real-time.
+              <h3 className="text-xl font-semibold text-white mb-2">One-Click Publishing</h3>
+              <p className="text-gray-400 mb-4">
+                Connect your X account and post instantly or schedule for later.
               </p>
+              <div className="text-sm text-blue-400 flex items-center gap-2">
+                <Repeat className="h-4 w-4" />
+                <span>Auto-post or queue for review</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-8">
+              <div className="mb-4 rounded-lg bg-emerald-500/10 p-3 w-fit">
+                <MessageSquare className="h-6 w-6 text-emerald-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">Content Ideas</h3>
+              <p className="text-gray-400 mb-4">
+                Get unlimited content suggestions based on trending topics and your niche.
+              </p>
+              <div className="text-sm text-emerald-400 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                <span>Trending topics + AI suggestions</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-8">
+              <div className="mb-4 rounded-lg bg-pink-500/10 p-3 w-fit">
+                <BarChart3 className="h-6 w-6 text-pink-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">Simple Analytics</h3>
+              <p className="text-gray-400 mb-4">
+                Track your growth with easy-to-read metrics that matter.
+              </p>
+              <div className="text-sm text-pink-400 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                <span>Engagement, followers, impressions</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-8">
+              <div className="mb-4 rounded-lg bg-amber-500/10 p-3 w-fit">
+                <Zap className="h-6 w-6 text-amber-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">Time Saving</h3>
+              <p className="text-gray-400 mb-4">
+                What used to take hours now takes minutes. Focus on engagement, not posting.
+              </p>
+              <div className="text-sm text-amber-400 flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                <span>Batch create a week of content in 30 min</span>
+              </div>
             </div>
           </div>
         </div>
@@ -110,24 +164,26 @@ export default function LandingPage() {
       {/* Stats Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 border-t border-gray-800">
         <div className="mx-auto max-w-7xl text-center">
+          <h2 className="text-2xl font-semibold text-white mb-12">Trusted by Early Adopters</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div>
-              <div className="text-4xl font-bold text-white mb-2">10x</div>
+              <div className="text-4xl font-bold text-white mb-2">5x</div>
               <div className="text-gray-400">Time Saved</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-white mb-2">500+</div>
-              <div className="text-gray-400">Active Users</div>
+              <div className="text-4xl font-bold text-white mb-2">50+</div>
+              <div className="text-gray-400">Beta Users</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-white mb-2">1M+</div>
-              <div className="text-gray-400">Posts Generated</div>
+              <div className="text-4xl font-bold text-white mb-2">10K+</div>
+              <div className="text-gray-400">Posts Created</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-white mb-2">99%</div>
+              <div className="text-4xl font-bold text-white mb-2">99.9%</div>
               <div className="text-gray-400">Uptime</div>
             </div>
           </div>
+          <p className="text-gray-500 text-sm mt-8">Join our beta and be part of the early growth.</p>
         </div>
       </section>
 
