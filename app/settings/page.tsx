@@ -1,14 +1,10 @@
 'use client';
 
 export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-
-function SettingsContent() {
-  const { user, signOut } = useAuth();
-import { Twitter, User, AlertTriangle, Loader2, CheckCircle2, X, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Twitter, User, AlertTriangle, Loader2, CheckCircle2, X, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 interface XAccount {
@@ -28,12 +24,10 @@ export default function SettingsPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  // Fetch connected X accounts on load
   useEffect(() => {
     fetchAccounts();
   }, []);
 
-  // Check for OAuth callback parameters
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -81,7 +75,6 @@ export default function SettingsPage() {
       const data = await res.json();
       
       if (data.url) {
-        // Redirect to X OAuth
         window.location.href = data.url;
       } else {
         setError('Failed to start OAuth flow');
@@ -114,7 +107,6 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      {/* Header */}
       <header className="border-b border-gray-800 bg-gray-900/50">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/dashboard" className="inline-flex items-center gap-2 text-gray-400 hover:text-white">
@@ -127,7 +119,6 @@ export default function SettingsPage() {
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <h1 className="text-2xl font-bold text-white mb-8">Settings</h1>
 
-        {/* Messages */}
         {message && (
           <div className="mb-6 rounded-lg bg-green-500/10 border border-green-500/20 p-4 flex items-center gap-2 text-green-400">
             <CheckCircle2 className="h-5 w-5" />
@@ -148,7 +139,6 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* X Accounts Section */}
         <div className="rounded-xl border border-gray-800 bg-gray-900 p-6 mb-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -187,11 +177,6 @@ export default function SettingsPage() {
                       {account.x_display_name || account.x_username}
                     </p>
                     <p className="text-gray-400 text-sm">@{account.x_username}</p>
-                    {account.followers_count > 0 && (
-                      <p className="text-gray-500 text-xs">
-                        {account.followers_count.toLocaleString()} followers
-                      </p>
-                    )}
                   </div>
 
                   <button
@@ -225,7 +210,7 @@ export default function SettingsPage() {
             <div className="text-center py-8">
               <Twitter className="h-12 w-12 text-gray-600 mx-auto mb-4" />
               <p className="text-gray-400 mb-4">
-                Connect your X account to start posting and scheduling
+                Connect your X account to start posting
               </p>
               <button
                 onClick={handleConnectX}
@@ -248,7 +233,6 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* Account Info */}
         <div className="rounded-xl border border-gray-800 bg-gray-900 p-6 mb-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <User className="h-5 w-5 text-indigo-400" />
@@ -267,14 +251,6 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
-        </div>
-
-        {/* About */}
-        <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">About Echo</h2>
-          <p className="text-gray-400 text-sm">
-            Echo v2.0 — Multi-user social media automation platform
-          </p>
         </div>
       </main>
     </div>
