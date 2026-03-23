@@ -1,7 +1,126 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Calendar, List, Clock, Edit2, Trash2, Copy, CheckCircle, XCircle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar, List, Clock, Edit2, Trash2, Copy, CheckCircle, XCircle, AlertCircle, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react'
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  useDraggable,
+  useDroppable,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+
+// Draggable Quote Card Component
+function DraggableQuote({ quote }: { quote: ScheduledQuote }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: quote.id,
+    data: { quote },
+    disabled: quote.status === 'published',
+  })
+
+  if (quote.status === 'published') {
+    return (
+      <div
+        className="text-xs truncate rounded px-1.5 py-0.5 bg-green-500/20 text-green-300 cursor-default"
+        title={`"${quote.quote_text?.slice(0, 50)}..." — ${quote.author}`}
+      >
+        "{quote.quote_text?.slice(0, 20)}..."
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`text-xs truncate rounded px-1.5 py-0.5 cursor-move transition-all ${
+        isDragging
+          ? 'bg-indigo-500/30 text-indigo-300 ring-2 ring-indigo-500/50'
+          : quote.status === 'failed'
+          ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
+          : 'bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30'
+      }`}
+      title={`"${quote.quote_text?.slice(0, 50)}..." — ${quote.author}`}
+    >
+      <span className="flex items-center gap-1">
+        <GripVertical className="h-3 w-3 flex-shrink-0" />
+        "{quote.quote_text?.slice(0, 18)}..."
+      </span>
+    </div>
+  )
+}
+
+// Droppable Day Component
+function DroppableDay({
+  id,
+  day,
+  isToday,
+  hasScheduled,
+  hasPublished,
+  dayQuotes,
+}: {
+  id: string
+  day: Date
+  isToday: boolean
+  hasScheduled: boolean
+  hasPublished: boolean
+  dayQuotes: ScheduledQuote[]
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id,
+    data: { day },
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`h-24 rounded-lg border p-1 transition-all ${
+        isToday
+          ? 'border-indigo-500 bg-indigo-500/10'
+          : isOver
+          ? 'border-indigo-400 bg-indigo-500/20 ring-2 ring-indigo-500/30'
+          : 'border-gray-700 bg-gray-900/50 hover:bg-gray-800'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <span
+          className={`text-sm font-medium ${
+            isToday ? 'text-indigo-400' : 'text-gray-400'
+          }`}
+        >
+          {day.getDate()}
+        </span>
+        {(hasScheduled || hasPublished) && (
+          <div className="flex gap-0.5">
+            {hasScheduled && <div className="h-1.5 w-1.5 rounded-full bg-yellow-400" />}
+            {hasPublished && <div className="h-1.5 w-1.5 rounded-full bg-green-400" />}
+          </div>
+        )}
+      </div>
+      <div className="mt-1 space-y-1 overflow-hidden">
+        {dayQuotes.slice(0, 2).map((quote) => (
+          <DraggableQuote key={quote.id} quote={quote} />
+        ))}
+        {dayQuotes.length > 2 && (
+          <div className="text-xs text-gray-500 px-1">+{dayQuotes.length - 2} more</div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 interface ScheduledQuote {
   id: string
@@ -56,6 +175,8 @@ export default function SchedulingDashboard() {
   const [editingQuote, setEditingQuote] = useState<ScheduledQuote | null>(null)
   const [message, setMessage] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [activeDragId, setActiveDragId] = useState<string | null>(null)
+  const [activeDragQuote, setActiveDragQuote] = useState<ScheduledQuote | null>(null)
 
   useEffect(() => {
     fetchQuotes()
@@ -245,6 +366,53 @@ export default function SchedulingDashboard() {
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+  // DND Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  // Handle drag start for calendar
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event
+    setActiveDragId(active.id as string)
+    const quote = filteredQuotes.find(q => q.id === active.id)
+    if (quote) {
+      setActiveDragQuote(quote)
+    }
+  }
+
+  // Handle drag end for calendar
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    
+    if (over && active.id !== over.id) {
+      const activeQuote = filteredQuotes.find(q => q.id === active.id)
+      const overDate = over.id as string
+      
+      if (activeQuote && overDate.startsWith('day-')) {
+        // Extract date from droppable ID
+        const dateStr = overDate.replace('day-', '')
+        const newDate = new Date(dateStr)
+        
+        // Set time to 9 AM
+        newDate.setHours(9, 0, 0, 0)
+        
+        // Reschedule the quote
+        handleReschedule(activeQuote, newDate.toISOString())
+      }
+    }
+    
+    setActiveDragId(null)
+    setActiveDragQuote(null)
+  }
+
   if (error) {
     return (
       <div className="rounded-xl bg-gray-800 p-6 shadow-lg">
@@ -329,7 +497,12 @@ export default function SchedulingDashboard() {
           <div className="text-gray-400">Loading...</div>
         </div>
       ) : (
-        <>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
           {/* Calendar View */}
           {viewMode === 'calendar' && (
             <div className="space-y-4">
@@ -373,56 +546,18 @@ export default function SchedulingDashboard() {
                   const isToday = new Date().toDateString() === day.toDateString()
                   const hasScheduled = dayQuotes.some(q => q.status === 'scheduled')
                   const hasPublished = dayQuotes.some(q => q.status === 'published')
+                  const droppableId = `day-${getDateKey(day)}`
                   
                   return (
-                    <div
+                    <DroppableDay
                       key={day.toISOString()}
-                      className={`h-24 rounded-lg border p-1 transition ${
-                        isToday
-                          ? 'border-indigo-500 bg-indigo-500/10'
-                          : 'border-gray-700 bg-gray-900/50 hover:bg-gray-800'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className={`text-sm font-medium ${
-                          isToday ? 'text-indigo-400' : 'text-gray-400'
-                        }`}>
-                          {day.getDate()}
-                        </span>
-                        {(hasScheduled || hasPublished) && (
-                          <div className="flex gap-0.5">
-                            {hasScheduled && (
-                              <div className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
-                            )}
-                            {hasPublished && (
-                              <div className="h-1.5 w-1.5 rounded-full bg-green-400" />
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="mt-1 space-y-1 overflow-hidden">
-                        {dayQuotes.slice(0, 2).map((quote) => (
-                          <div
-                            key={quote.id}
-                            className={`text-xs truncate rounded px-1.5 py-0.5 ${
-                              quote.status === 'published'
-                                ? 'bg-green-500/20 text-green-300'
-                                : quote.status === 'failed'
-                                ? 'bg-red-500/20 text-red-300'
-                                : 'bg-yellow-500/20 text-yellow-300'
-                            }`}
-                            title={`"${quote.quote_text?.slice(0, 50)}..." — ${quote.author}`}
-                          >
-                            "{quote.quote_text?.slice(0, 20)}..."
-                          </div>
-                        ))}
-                        {dayQuotes.length > 2 && (
-                          <div className="text-xs text-gray-500 px-1">
-                            +{dayQuotes.length - 2} more
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                      id={droppableId}
+                      day={day}
+                      isToday={isToday}
+                      hasScheduled={hasScheduled}
+                      hasPublished={hasPublished}
+                      dayQuotes={dayQuotes}
+                    />
                   )
                 })}
               </div>
@@ -516,7 +651,7 @@ export default function SchedulingDashboard() {
               )}
             </div>
           )}
-        </>
+        </DndContext>
       )}
 
       {/* Edit Modal */}

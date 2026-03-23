@@ -12,7 +12,7 @@ interface ScheduledQuote {
   tweet_id?: string
 }
 
-export default function ScheduledQuotes() {
+export default function ScheduledQuotes({ compact }: { compact?: boolean }) {
   const [quotes, setQuotes] = useState<ScheduledQuote[]>([])
   const [loading, setLoading] = useState(false)
   const [posting, setPosting] = useState<string | null>(null)
@@ -109,10 +109,15 @@ export default function ScheduledQuotes() {
     setLoading(false)
   }
 
+  // Filter quotes based on compact mode - show only upcoming
+  const displayQuotes = compact
+    ? quotes.filter(q => !q.posted_to_x).slice(0, 5)
+    : quotes
+
   return (
     <div className="rounded-xl bg-gray-800 p-6 shadow-lg">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">Scheduled Quotes</h2>
+        <h2 className="text-lg font-semibold text-white">{compact ? 'Quick Schedule' : 'Scheduled Quotes'}</h2>
         <button
           onClick={generateNow}
           disabled={loading}
@@ -146,10 +151,10 @@ export default function ScheduledQuotes() {
       )}
 
       <div className="space-y-3">
-        {quotes.length === 0 && (
-          <p className="text-sm text-gray-500">No scheduled quotes yet.</p>
+        {displayQuotes.length === 0 && (
+          <p className="text-sm text-gray-500">{compact ? 'No upcoming quotes.' : 'No scheduled quotes yet.'}</p>
         )}
-        {quotes.map((quote) => (
+        {displayQuotes.map((quote) => (
           <div key={quote.id} className="rounded-lg bg-gray-900 p-4">
             <blockquote className="mb-2 text-sm text-white">
               "{quote.quote_text}"
@@ -176,6 +181,11 @@ export default function ScheduledQuotes() {
             </div>
           </div>
         ))}
+        {compact && quotes.filter(q => !q.posted_to_x).length > 5 && (
+          <p className="text-xs text-gray-500 text-center pt-2">
+            +{quotes.filter(q => !q.posted_to_x).length - 5} more — switch to Scheduling tab to see all
+          </p>
+        )}
       </div>
     </div>
   )

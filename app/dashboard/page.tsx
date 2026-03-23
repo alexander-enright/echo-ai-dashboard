@@ -83,7 +83,7 @@ export default function Dashboard() {
             {/* Left Column */}
             <div className="space-y-6">
               <QuoteGenerator />
-              <ScheduledQuotes />
+              <ScheduledQuotes compact />
               <SportsFeed />
             </div>
 
