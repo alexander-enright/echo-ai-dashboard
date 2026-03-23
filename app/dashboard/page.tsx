@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/AuthProvider'
+import SchedulingDashboard from '@/components/SchedulingDashboard'
 import { 
   Twitter, 
   LogOut, 
@@ -16,7 +17,10 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
-  ExternalLink
+  ExternalLink,
+  Calendar,
+  Clock,
+  List
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -45,9 +49,49 @@ interface ActivityItem {
   created_at: string
 }
 
+interface ScheduledQuote {
+  id: string
+  quote_text: string
+  author: string
+  category: string
+  scheduled_time: string
+  created_at: string
+  posted_to_x: boolean
+  tweet_id?: string
+  posted_at?: string
+  status?: 'scheduled' | 'published' | 'failed'
+}
+
+type DashboardTab = 'overview' | 'scheduling'
+
+// Safe date parsing helper
+function safeDate(dateString: string | null | undefined): Date | null {
+  if (!dateString) return null
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return null
+    return date
+  } catch {
+    return null
+  }
+}
+
+function formatDateSafe(dateString: string | null | undefined): string {
+  const date = safeDate(dateString)
+  if (!date) return 'Invalid date'
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export default function Dashboard() {
   const { user, signOut, isLoading: authLoading } = useAuth()
   const router = useRouter()
+  
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview')
   
   const [xAccount, setXAccount] = useState<XAccount | null>(null)
   const [isLoadingX, setIsLoadingX] = useState(true)
@@ -64,6 +108,11 @@ export default function Dashboard() {
   const [recentPosts, setRecentPosts] = useState<GeneratedPost[]>([])
   const [activity, setActivity] = useState<ActivityItem[]>([])
   const [isLoadingData, setIsLoadingData] = useState(true)
+  
+  // Scheduling stats
+  const [scheduledCount, setScheduledCount] = useState(0)
+  const [publishedCount, setPublishedCount] = useState(0)
+  const [upcomingPosts, setUpcomingPosts] = useState<ScheduledQuote[]>([])
 
   // Fetch X account status
   useEffect(() => {
@@ -71,6 +120,7 @@ export default function Dashboard() {
       fetchXAccount()
       fetchPosts()
       fetchActivity()
+      fetchSchedulingStats()
     }
   }, [user])
 
@@ -111,6 +161,39 @@ export default function Dashboard() {
       console.error('Failed to fetch activity:', error)
     } finally {
       setIsLoadingData(false)
+    }
+  }
+  
+  const fetchSchedulingStats = async () => {
+    try {
+      const res = await fetch('/api/scheduledQuotes')
+      const data = await res.json()
+      if (data.quotes) {
+        const quotes = data.quotes
+          .filter((q: any) => q && q.id)
+          .map((q: any) => ({
+            ...q,
+            status: q.posted_to_x ? 'published' : 'scheduled'
+          }))
+        
+        setScheduledCount(quotes.filter((q: any) => q.status === 'scheduled').length)
+        setPublishedCount(quotes.filter((q: any) => q.status === 'published').length)
+        
+        // Get next 3 upcoming posts
+        const upcoming = quotes
+          .filter((q: any) => q.status === 'scheduled')
+          .sort((a: any, b: any) => {
+            const dateA = safeDate(a.scheduled_time)
+            const dateB = safeDate(b.scheduled_time)
+            if (!dateA || !dateB) return 0
+            return dateA.getTime() - dateB.getTime()
+          })
+          .slice(0, 3)
+        
+        setUpcomingPosts(upcoming)
+      }
+    } catch (error) {
+      console.error('Failed to fetch scheduling stats:', error)
     }
   }
 
@@ -271,273 +354,413 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-800 bg-gray-900/30">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition ${
+                activeTab === 'overview'
+                  ? 'border-indigo-500 text-indigo-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              <Activity className="h-4 w-4" />
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('scheduling')}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition ${
+                activeTab === 'scheduling'
+                  ? 'border-indigo-500 text-indigo-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              <Calendar className="h-4 w-4" />
+              Scheduling
+              {scheduledCount > 0 && (
+                <span className="ml-1 rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs text-indigo-300">
+                  {scheduledCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Left Column - Main Actions */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* X Account Card */}
-            <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Twitter className="h-5 w-5 text-blue-400" />
-                  X Account
-                </h2>
-                {xAccount && (
-                  <span className="flex items-center gap-1 text-xs text-green-400">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Connected
-                  </span>
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Left Column - Main Actions */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* X Account Card */}
+              <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <Twitter className="h-5 w-5 text-blue-400" />
+                    X Account
+                  </h2>
+                  {xAccount && (
+                    <span className="flex items-center gap-1 text-xs text-green-400">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Connected
+                    </span>
+                  )}
+                </div>
+
+                {isLoadingX ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+                  </div>
+                ) : xAccount ? (
+                  <div className="flex items-center gap-4">
+                    {xAccount.profile_image_url ? (
+                      <img 
+                        src={xAccount.profile_image_url} 
+                        alt={xAccount.x_display_name}
+                        className="h-16 w-16 rounded-full"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-full bg-gray-800 flex items-center justify-center">
+                        <User className="h-8 w-8 text-gray-600" />
+                      </div>
+                    )}
+                    <div>
+                      <p className="font-semibold text-white">
+                        {xAccount.x_display_name}
+                        {xAccount.verified && (
+                          <span className="ml-2 text-blue-400">✓</span>
+                        )}
+                      </p>
+                      <p className="text-gray-400">@{xAccount.x_username}</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {xAccount.followers_count.toLocaleString()} followers
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400 mb-4">
+                      Connect your X account to start posting
+                    </p>
+                    <button
+                      onClick={handleConnectX}
+                      disabled={isConnecting}
+                      className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {isConnecting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Twitter className="h-4 w-4" />
+                          Connect X Account
+                        </>
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
 
-              {isLoadingX ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+              {/* Generate Section */}
+              <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-yellow-400" />
+                    Generate Post
+                  </h2>
                 </div>
-              ) : xAccount ? (
-                <div className="flex items-center gap-4">
-                  {xAccount.profile_image_url ? (
-                    <img 
-                      src={xAccount.profile_image_url} 
-                      alt={xAccount.x_display_name}
-                      className="h-16 w-16 rounded-full"
-                    />
-                  ) : (
-                    <div className="h-16 w-16 rounded-full bg-gray-800 flex items-center justify-center">
-                      <User className="h-8 w-8 text-gray-600" />
-                    </div>
-                  )}
-                  <div>
-                    <p className="font-semibold text-white">
-                      {xAccount.x_display_name}
-                      {xAccount.verified && (
-                        <span className="ml-2 text-blue-400">✓</span>
-                      )}
-                    </p>
-                    <p className="text-gray-400">@{xAccount.x_username}</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {xAccount.followers_count.toLocaleString()} followers
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-400 mb-4">
-                    Connect your X account to start posting
-                  </p>
-                  <button
-                    onClick={handleConnectX}
-                    disabled={isConnecting}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                  >
-                    {isConnecting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <Twitter className="h-4 w-4" />
-                        Connect X Account
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
 
-            {/* Generate Section */}
-            <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-yellow-400" />
-                  Generate Post
-                </h2>
-              </div>
-
-              {!generatedContent ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-400 mb-4">
-                    Let AI create an engaging post for you
-                  </p>
-                  <button
-                    onClick={handleGenerate}
-                    disabled={isGenerating}
-                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4" />
-                        Generate Content
-                      </>
-                    )}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="rounded-lg border border-gray-700 bg-gray-800 p-4">
-                    <p className="text-white whitespace-pre-wrap">{generatedContent}</p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      {generatedContent.length}/280 characters
+                {!generatedContent ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400 mb-4">
+                      Let AI create an engaging post for you
                     </p>
-                  </div>
-                  
-                  <div className="flex gap-3">
-                    {xAccount && (
-                      <button
-                        onClick={handlePostToX}
-                        disabled={isPosting}
-                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                      >
-                        {isPosting ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Posting...
-                          </>
-                        ) : (
-                          <>
-                            <Send className="h-4 w-4" />
-                            Post to X
-                          </>
-                        )}
-                      </button>
-                    )}
                     <button
                       onClick={handleGenerate}
                       disabled={isGenerating}
-                      className="inline-flex items-center gap-2 rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      className="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                     >
-                      <RefreshCw className="h-4 w-4" />
-                      Regenerate
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          Generate Content
+                        </>
+                      )}
                     </button>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Retweet Section */}
-            <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Repeat className="h-5 w-5 text-green-400" />
-                  Quick Retweet
-                </h2>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-gray-700 bg-gray-800 p-4">
+                      <p className="text-white whitespace-pre-wrap">{generatedContent}</p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {generatedContent.length}/280 characters
+                      </p>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      {xAccount && (
+                        <button
+                          onClick={handlePostToX}
+                          disabled={isPosting}
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                        >
+                          {isPosting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Posting...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="h-4 w-4" />
+                              Post to X
+                            </>
+                          )}
+                        </button>
+                      )}
+                      <button
+                        onClick={handleGenerate}
+                        disabled={isGenerating}
+                        className="inline-flex items-center gap-2 rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Regenerate
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {xAccount ? (
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    value={retweetUrl}
-                    onChange={(e) => setRetweetUrl(e.target.value)}
-                    placeholder="Paste tweet URL here..."
-                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder-gray-500 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition"
-                  />
+              {/* Retweet Section */}
+              <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <Repeat className="h-5 w-5 text-green-400" />
+                    Quick Retweet
+                  </h2>
+                </div>
+
+                {xAccount ? (
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={retweetUrl}
+                      onChange={(e) => setRetweetUrl(e.target.value)}
+                      placeholder="Paste tweet URL here..."
+                      className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder-gray-500 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition"
+                    />
+                    <button
+                      onClick={handleRetweet}
+                      disabled={isRetweeting || !retweetUrl}
+                      className="inline-flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {isRetweeting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Retweeting...
+                        </>
+                      ) : (
+                        <>
+                          <Repeat className="h-4 w-4" />
+                          Retweet
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm">
+                    Connect your X account to use retweet functionality
+                  </p>
+                )}
+              </div>
+              
+              {/* Quick Scheduling Preview */}
+              <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-indigo-400" />
+                    Upcoming Scheduled Posts
+                  </h2>
                   <button
-                    onClick={handleRetweet}
-                    disabled={isRetweeting || !retweetUrl}
-                    className="inline-flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    onClick={() => setActiveTab('scheduling')}
+                    className="text-sm text-indigo-400 hover:text-indigo-300"
                   >
-                    {isRetweeting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Retweeting...
-                      </>
-                    ) : (
-                      <>
-                        <Repeat className="h-4 w-4" />
-                        Retweet
-                      </>
-                    )}
+                    View All →
                   </button>
                 </div>
-              ) : (
-                <p className="text-gray-400 text-sm">
-                  Connect your X account to use retweet functionality
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Right Column - Activity */}
-          <div className="space-y-6">
-            {/* Recent Posts */}
-            <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Recent Posts</h2>
-              
-              {isLoadingData ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
-                </div>
-              ) : recentPosts.length > 0 ? (
-                <div className="space-y-3">
-                  {recentPosts.slice(0, 5).map((post) => (
-                    <div 
-                      key={post.id}
-                      className="rounded-lg border border-gray-800 bg-gray-800/50 p-3"
-                    >
-                      <p className="text-sm text-gray-300 line-clamp-2">{post.content}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className={`text-xs ${
-                          post.status === 'posted' ? 'text-green-400' : 
-                          post.status === 'failed' ? 'text-red-400' : 'text-yellow-400'
-                        }`}>
-                          {post.status === 'posted' ? '✓ Posted' : 
-                           post.status === 'failed' ? '✗ Failed' : 'Draft'}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {formatTime(post.created_at)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-400 text-sm py-4">No posts yet. Generate your first post!</p>
-              )}
-            </div>
-
-            {/* Activity Log */}
-            <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Activity className="h-5 w-5 text-purple-400" />
-                Activity Log
-              </h2>
-              
-              {isLoadingData ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
-                </div>
-              ) : activity.length > 0 ? (
-                <div className="space-y-3">
-                  {activity.map((item) => (
-                    <div 
-                      key={item.id}
-                      className="flex items-start gap-3 rounded-lg border border-gray-800 bg-gray-800/50 p-3"
-                    >
-                      <div className="rounded-full bg-gray-700 p-1.5">
-                        {getActivityIcon(item.action)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-300">{getActivityText(item)}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {formatTime(item.created_at)}
+                
+                {upcomingPosts.length > 0 ? (
+                  <div className="space-y-3">
+                    {upcomingPosts.map((post) => (
+                      <div key={post.id} className="flex items-center gap-4 p-3 rounded-lg bg-gray-800/50 border border-gray-700">
+                        <div className="flex-shrink-0">
+                          <span className="inline-flex items-center justify-center px-2 py-1 rounded bg-indigo-500/20 text-indigo-300 text-xs">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {formatDateSafe(post.scheduled_time).split(',')[0]}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-300 truncate flex-1">
+                          "{post.quote_text?.slice(0, 60)}..."
                         </p>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-gray-400 text-sm">No upcoming scheduled posts.</p>
+                    <button
+                      onClick={() => setActiveTab('scheduling')}
+                      className="mt-2 text-sm text-indigo-400 hover:text-indigo-300"
+                    >
+                      Go to Scheduling →
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column - Activity */}
+            <div className="space-y-6">
+              {/* Scheduling Stats */}
+              <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-purple-400" />
+                  Scheduling Stats
+                </h2>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-lg bg-gray-800 p-4 text-center">
+                    <p className="text-2xl font-bold text-indigo-400">{scheduledCount}</p>
+                    <p className="text-xs text-gray-400 mt-1">Scheduled</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-800 p-4 text-center">
+                    <p className="text-2xl font-bold text-green-400">{publishedCount}</p>
+                    <p className="text-xs text-gray-400 mt-1">Published</p>
+                  </div>
                 </div>
-              ) : (
-                <p className="text-gray-400 text-sm py-4">No activity yet</p>
-              )}
+                <button
+                  onClick={() => setActiveTab('scheduling')}
+                  className="w-full mt-4 flex items-center justify-center gap-2 rounded-lg bg-indigo-500/20 border border-indigo-500/30 px-4 py-2 text-sm font-medium text-indigo-300 hover:bg-indigo-500/30 transition"
+                >
+                  <Calendar className="h-4 w-4" />
+                  Open Calendar
+                </button>
+              </div>
+
+              {/* Recent Posts */}
+              <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+                <h2 className="text-lg font-semibold text-white mb-4">Recent Posts</h2>
+                
+                {isLoadingData ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+                  </div>
+                ) : recentPosts.length > 0 ? (
+                  <div className="space-y-3">
+                    {recentPosts.slice(0, 5).map((post) => (
+                      <div 
+                        key={post.id}
+                        className="rounded-lg border border-gray-800 bg-gray-800/50 p-3"
+                      >
+                        <p className="text-sm text-gray-300 line-clamp-2">{post.content}</p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className={`text-xs ${
+                            post.status === 'posted' ? 'text-green-400' : 
+                            post.status === 'failed' ? 'text-red-400' : 'text-yellow-400'
+                          }`}>
+                            {post.status === 'posted' ? '✓ Posted' : 
+                             post.status === 'failed' ? '✗ Failed' : 'Draft'}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {formatTime(post.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm py-4">No posts yet. Generate your first post!</p>
+                )}
+              </div>
+
+              {/* Activity Log */}
+              <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-purple-400" />
+                  Activity Log
+                </h2>
+                
+                {isLoadingData ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+                  </div>
+                ) : activity.length > 0 ? (
+                  <div className="space-y-3">
+                    {activity.map((item) => (
+                      <div 
+                        key={item.id}
+                        className="flex items-start gap-3 rounded-lg border border-gray-800 bg-gray-800/50 p-3"
+                      >
+                        <div className="rounded-full bg-gray-700 p-1.5">
+                          {getActivityIcon(item.action)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-300">{getActivityText(item)}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {formatTime(item.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm py-4">No activity yet</p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
+        
+        {/* Scheduling Tab */}
+        {activeTab === 'scheduling' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-white">Scheduling Calendar</h2>
+                <p className="text-gray-400 mt-1">
+                  Drag and drop posts to reschedule. View your content calendar at a glance.
+                </p>
+              </div>
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Generate New Post
+                  </>
+                )}
+              </button>
+            </div>
+            
+            <SchedulingDashboard />
+          </div>
+        )}
       </main>
     </div>
   )
