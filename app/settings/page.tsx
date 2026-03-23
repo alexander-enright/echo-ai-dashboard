@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { Twitter, User, AlertTriangle, Loader2, CheckCircle2, X, ArrowLeft, RefreshCw } from 'lucide-react';

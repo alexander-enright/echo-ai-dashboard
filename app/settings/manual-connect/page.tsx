@@ -1,12 +1,10 @@
-'use client';
+'use client'
 
 import { useState } from 'react';
-import { useAuth } from '@/components/AuthProvider';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ManualConnectPage() {
-  const { user } = useAuth();
   const [xUserId, setXUserId] = useState('');
   const [xUsername, setXUsername] = useState('');
   const [accessToken, setAccessToken] = useState('');
@@ -35,7 +33,6 @@ export default function ManualConnectPage() {
 
       if (res.ok) {
         setMessage('X account connected successfully!');
-        // Redirect after success
         setTimeout(() => {
           window.location.href = '/settings';
         }, 1500);
@@ -62,7 +59,6 @@ export default function ManualConnectPage() {
           <h1 className="text-xl font-bold text-white mb-2">Manual X Connection</h1>
           <p className="text-gray-400 text-sm mb-6">
             Connect your X account by providing your API credentials directly.
-            This bypasses the OAuth flow.
           </p>
 
           {message && (
@@ -81,9 +77,7 @@ export default function ManualConnectPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                X User ID
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">X User ID</label>
               <input
                 type="text"
                 value={xUserId}
@@ -92,13 +86,11 @@ export default function ManualConnectPage() {
                 className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-white"
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">Your X account's numeric ID</p>
+              <p className="text-xs text-gray-500 mt-1">Get from https://tweeterid.com/</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                X Username
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">X Username</label>
               <input
                 type="text"
                 value={xUsername}
@@ -110,9 +102,7 @@ export default function ManualConnectPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Access Token
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Access Token</label>
               <textarea
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
@@ -121,9 +111,7 @@ export default function ManualConnectPage() {
                 rows={4}
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Get this from https://developer.twitter.com/en/portal/dashboard → Keys and Tokens
-              </p>
+              <p className="text-xs text-gray-500 mt-1">From developer.twitter.com → Keys and Tokens</p>
             </div>
 
             <button
@@ -141,13 +129,6 @@ export default function ManualConnectPage() {
               )}
             </button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-gray-800">
-            <p className="text-xs text-gray-500">
-              <strong>Note:</strong> This stores your access token in the database.
-              The token will be used to post tweets on your behalf.
-            </p>
-          </div>
         </div>
       </div>
     </div>
