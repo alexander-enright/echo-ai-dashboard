@@ -18,7 +18,7 @@ export function generatePKCE() {
   return { codeVerifier, codeChallenge, state }
 }
 
-// Generate OAuth 2.0 authorization URL
+// Generate OAuth 2.0 authorization URL - MINIMAL SCOPES
 export function generateAuthURL() {
   if (!X_CLIENT_ID) {
     throw new Error('X_API_KEY (Client ID) must be configured')
@@ -26,18 +26,26 @@ export function generateAuthURL() {
   
   const { codeVerifier, codeChallenge, state } = generatePKCE()
   
+  // Build URL manually to avoid encoding issues
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: X_CLIENT_ID,
     redirect_uri: REDIRECT_URI,
-    scope: 'tweet.read tweet.write users.read',
     state: state,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
   })
   
+  // Use only basic scopes first
+  params.append('scope', 'tweet.read users.read')
+  
+  const url = `https://twitter.com/i/oauth2/authorize?${params.toString()}`
+  
+  console.log('Generated OAuth URL:', url)
+  console.log('Redirect URI:', REDIRECT_URI)
+  
   return {
-    url: `https://twitter.com/i/oauth2/authorize?${params.toString()}`,
+    url,
     codeVerifier,
     state
   }
@@ -74,6 +82,9 @@ export async function exchangeCodeForToken(code: string, codeVerifier: string) {
   }
   
   const data = await response.json()
+  console.log('Token exchange successful!')
+  console.log('Scopes received:', data.scope)
+  
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
