@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch fresh profile data from X API
     try {
-      const profile = await fetchUserProfile(xAccount.access_token, xAccount.access_secret)
+      const profile = await fetchUserProfile(xAccount.access_token)
       
       return NextResponse.json({
         connected: true,
