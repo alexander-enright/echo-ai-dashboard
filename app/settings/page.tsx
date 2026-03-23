@@ -1,9 +1,13 @@
 'use client';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/components/AuthProvider';
+
+function SettingsContent() {
+  const { user, signOut } = useAuth();
 import { Twitter, User, AlertTriangle, Loader2, CheckCircle2, X, ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
