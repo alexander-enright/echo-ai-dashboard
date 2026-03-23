@@ -16,15 +16,15 @@ export default function LandingPage() {
             </div>
             
             <div className="flex items-center gap-4">
-              <Link href="/login" className="text-gray-300 hover:text-white">
+              <a href="mailto:alexenrightt@gmail.com?subject=Echo Access Request" className="text-gray-300 hover:text-white">
                 Log in
-              </Link>
-              <Link 
-                href="/signup" 
+              </a>
+              <a
+                href="mailto:alexenrightt@gmail.com?subject=Echo Access Request"
                 className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
               >
-                Get Started
-              </Link>
+                Request Access
+              </a>
             </div>
           </div>
         </div>
@@ -52,19 +52,19 @@ export default function LandingPage() {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/signup"
+            <a
+              href="mailto:alexenrightt@gmail.com?subject=Echo Access Request"
               className="inline-flex items-center gap-2 rounded-lg bg-white px-8 py-4 text-lg font-semibold text-gray-900 hover:bg-gray-100"
             >
-              Start Free Trial
+              Request Access
               <ArrowRight className="h-5 w-5" />
-            </Link>
+            </a>
             
             <a
               href="mailto:alexenrightt@gmail.com?subject=Echo Access Request"
               className="text-gray-400 hover:text-white"
             >
-              Request Access →
+              alexenrightt@gmail.com →
             </a>
           </div>
         </div>
@@ -197,13 +197,13 @@ export default function LandingPage() {
             Join creators and businesses using Echo to automate their social media.
           </p>
           
-          <Link
-            href="/signup"
+          <a
+            href="mailto:alexenrightt@gmail.com?subject=Echo Access Request"
             className="inline-flex items-center gap-2 rounded-lg bg-white px-8 py-4 text-lg font-semibold text-gray-900 hover:bg-gray-100"
           >
-            Get Started Free
+            Request Access
             <ArrowRight className="h-5 w-5" />
-          </Link>
+          </a>
         </div>
       </section>
 
