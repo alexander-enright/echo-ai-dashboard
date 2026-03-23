@@ -18,7 +18,8 @@ export function generatePKCE() {
   return { codeVerifier, codeChallenge, state }
 }
 
-// Generate OAuth 2.0 authorization URL - MINIMAL SCOPES
+// Generate OAuth 2.0 authorization URL
+// Scopes for "Read and write" app permissions
 export function generateAuthURL() {
   if (!X_CLIENT_ID) {
     throw new Error('X_API_KEY (Client ID) must be configured')
@@ -26,26 +27,28 @@ export function generateAuthURL() {
   
   const { codeVerifier, codeChallenge, state } = generatePKCE()
   
-  // Build URL manually to avoid encoding issues
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: X_CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
-    state: state,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-  })
+  // For "Read and write" permissions, use these scopes:
+  // tweet.read, users.read, tweet.write
+  const scope = 'tweet.read users.read tweet.write offline.access'
   
-  // Use minimal scopes - just read for now to test connection
-  params.append('scope', 'users.read')
+  // Build URL manually to ensure proper encoding
+  const url = new URL('https://twitter.com/i/oauth2/authorize')
+  url.searchParams.append('response_type', 'code')
+  url.searchParams.append('client_id', X_CLIENT_ID)
+  url.searchParams.append('redirect_uri', REDIRECT_URI)
+  url.searchParams.append('scope', scope)
+  url.searchParams.append('state', state)
+  url.searchParams.append('code_challenge', codeChallenge)
+  url.searchParams.append('code_challenge_method', 'S256')
   
-  const url = `https://twitter.com/i/oauth2/authorize?${params.toString()}`
-  
-  console.log('Generated OAuth URL:', url)
+  console.log('=== OAuth URL ===')
+  console.log('Client ID:', X_CLIENT_ID.substring(0, 10) + '...')
   console.log('Redirect URI:', REDIRECT_URI)
+  console.log('Scope:', scope)
+  console.log('Full URL:', url.toString().substring(0, 100) + '...')
   
   return {
-    url,
+    url: url.toString(),
     codeVerifier,
     state
   }
@@ -57,9 +60,8 @@ export async function exchangeCodeForToken(code: string, codeVerifier: string) {
     throw new Error('X_API_KEY and X_API_SECRET must be configured')
   }
   
+  console.log('=== Token Exchange ===')
   console.log('Exchanging code for token...')
-  console.log('Client ID:', X_CLIENT_ID.substring(0, 10) + '...')
-  console.log('Redirect URI:', REDIRECT_URI)
   
   const response = await fetch('https://api.twitter.com/2/oauth2/token', {
     method: 'POST',
@@ -120,6 +122,8 @@ export async function refreshAccessToken(refreshToken: string) {
 
 // Fetch user profile with OAuth 2.0 token
 export async function fetchUserProfile(accessToken: string) {
+  console.log('Fetching user profile...')
+  
   const response = await fetch('https://api.twitter.com/2/users/me?user.fields=profile_image_url,public_metrics,verified', {
     headers: {
       'Authorization': `Bearer ${accessToken}`
@@ -133,6 +137,8 @@ export async function fetchUserProfile(accessToken: string) {
   }
   
   const data = await response.json()
+  console.log('Profile fetched:', data.data?.username)
+  
   return {
     id: data.data.id,
     username: data.data.username,
@@ -145,6 +151,8 @@ export async function fetchUserProfile(accessToken: string) {
 
 // Post tweet with OAuth 2.0 token
 export async function postTweet(accessToken: string, text: string) {
+  console.log('Posting tweet...')
+  
   const response = await fetch('https://api.twitter.com/2/tweets', {
     method: 'POST',
     headers: {
@@ -161,11 +169,14 @@ export async function postTweet(accessToken: string, text: string) {
   }
   
   const data = await response.json()
+  console.log('Tweet posted:', data.data.id)
   return data.data.id
 }
 
 // Retweet with OAuth 2.0 token
 export async function retweet(accessToken: string, userId: string, tweetId: string) {
+  console.log('Retweeting...')
+  
   const response = await fetch(`https://api.twitter.com/2/users/${userId}/retweets`, {
     method: 'POST',
     headers: {
