@@ -55,17 +55,17 @@ export default function HeroSection() {
             ) : (
               <>
                 <Link
-                  href="/login"
+                  href="/signup"
                   className="group inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-semibold text-gray-900 hover:bg-gray-100 transition"
                 >
                   Get Started Free
                   <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition" />
                 </Link>
                 <Link
-                  href="#demo"
+                  href="/login"
                   className="inline-flex items-center gap-2 rounded-xl border border-gray-700 px-8 py-4 text-base font-medium text-white hover:bg-gray-800 transition"
                 >
-                  See How It Works
+                  Sign In
                 </Link>
               </>
             )}

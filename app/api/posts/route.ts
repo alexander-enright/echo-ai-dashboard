@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { getActivityLog } from '@/lib/supabase-server'
+import { getGeneratedPosts } from '@/lib/supabase-server'
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,20 +34,20 @@ export async function GET(request: NextRequest) {
 
     // Get query params
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const limit = parseInt(searchParams.get('limit') || '50')
 
-    // Get user's activity log
-    const activity = await getActivityLog(user.id, limit)
+    // Get user's posts
+    const posts = await getGeneratedPosts(user.id, limit)
 
     return NextResponse.json({
       success: true,
-      activity
+      posts
     })
     
   } catch (error: any) {
-    console.error('Error fetching activity:', error)
+    console.error('Error fetching posts:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch activity' },
+      { error: error.message || 'Failed to fetch posts' },
       { status: 500 }
     )
   }

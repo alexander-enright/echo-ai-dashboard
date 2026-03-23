@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { getActivityLog } from '@/lib/supabase-server'
+import { deleteXAccount, logActivity } from '@/lib/supabase-server'
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     // Create Supabase client
     const cookieStore = await cookies()
@@ -32,22 +32,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get query params
-    const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '20')
+    // Delete X account connection
+    await deleteXAccount(user.id)
 
-    // Get user's activity log
-    const activity = await getActivityLog(user.id, limit)
+    // Log activity
+    await logActivity(user.id, 'disconnect_x', {})
 
-    return NextResponse.json({
-      success: true,
-      activity
-    })
+    return NextResponse.json({ success: true })
     
   } catch (error: any) {
-    console.error('Error fetching activity:', error)
+    console.error('Error disconnecting X account:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch activity' },
+      { error: error.message || 'Failed to disconnect X account' },
       { status: 500 }
     )
   }

@@ -6,38 +6,48 @@ import Link from 'next/link'
 import { createClientComponentClient } from '@/lib/supabase-client'
 import { Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react'
 
-export default function LoginPage() {
+export default function SignUpPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [fullName, setFullName] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const router = useRouter()
   
-  // Create client inside component to avoid static generation issues
   const [supabase] = useState(() => createClientComponentClient())
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccess('')
     setIsLoading(true)
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+        },
       })
 
-      if (signInError) {
-        setError(signInError.message)
+      if (signUpError) {
+        setError(signUpError.message)
         return
       }
 
       if (data.user) {
-        router.push('/dashboard')
-        router.refresh()
+        setSuccess('Account created! Please check your email to confirm your account.')
+        // Redirect after a delay
+        setTimeout(() => {
+          router.push('/login?message=Please check your email to confirm your account')
+        }, 2000)
       }
-    } catch {
+    } catch (err) {
       setError('An unexpected error occurred. Please try again.')
     } finally {
       setIsLoading(false)
@@ -57,7 +67,7 @@ export default function LoginPage() {
         </Link>
       </div>
 
-      {/* Login Form */}
+      {/* Signup Form */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
         <div className="w-full max-w-md">
           {/* Logo */}
@@ -68,10 +78,10 @@ export default function LoginPage() {
               </div>
             </Link>
             <h1 className="mt-6 text-2xl font-bold text-white">
-              Welcome back
+              Create your account
             </h1>
             <p className="mt-2 text-gray-400">
-              Sign in to your Echo account
+              Start automating your X presence with AI
             </p>
           </div>
 
@@ -82,6 +92,26 @@ export default function LoginPage() {
                 {error}
               </div>
             )}
+            
+            {success && (
+              <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-4 text-sm text-green-400">
+                {success}
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="fullName" className="block text-sm font-medium text-gray-300 mb-2">
+                Full Name
+              </label>
+              <input
+                id="fullName"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+                placeholder="John Doe"
+              />
+            </div>
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
@@ -109,6 +139,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  minLength={6}
                   className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 pr-12 text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
                   placeholder="••••••••"
                 />
@@ -124,6 +155,9 @@ export default function LoginPage() {
                   )}
                 </button>
               </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Must be at least 6 characters
+              </p>
             </div>
 
             <button
@@ -134,25 +168,20 @@ export default function LoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  Signing in...
+                  Creating account...
                 </>
               ) : (
-                'Sign in'
+                'Create account'
               )}
             </button>
           </form>
 
-          {/* Sign Up Link */}
+          {/* Login Link */}
           <div className="mt-8 text-center">
             <p className="text-gray-400">
-              Don't have an account?{' '}
-              <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 font-medium">
-                Create account
-              </Link>
-            </p>
-            <p className="mt-4 text-sm text-gray-500">
-              <Link href="/reset-password" className="text-gray-400 hover:text-gray-300">
-                Forgot your password?
+              Already have an account?{' '}
+              <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-medium">
+                Sign in
               </Link>
             </p>
           </div>

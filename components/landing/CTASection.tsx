@@ -2,16 +2,10 @@
 
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
-import { ArrowRight, Mail } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 
 export default function CTASection() {
   const { user } = useAuth()
-
-  const handleRequestAccess = () => {
-    const subject = encodeURIComponent('Echo Access Request')
-    const body = encodeURIComponent("Hi, I'd like access to Echo.")
-    window.open(`mailto:alexenrightt@gmail.com?subject=${subject}&body=${body}`, '_blank')
-  }
 
   return (
     <section id="pricing" className="py-24 bg-gray-900 relative overflow-hidden">
@@ -39,32 +33,31 @@ export default function CTASection() {
             ) : (
               <>
                 <Link
-                  href="/login"
+                  href="/signup"
                   className="group inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-semibold text-gray-900 hover:bg-gray-100 transition"
                 >
-                  Sign In to Echo
+                  Get Started Free
                   <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition" />
                 </Link>
-                <button
-                  onClick={handleRequestAccess}
+                <Link
+                  href="/login"
                   className="inline-flex items-center gap-2 rounded-xl border border-gray-700 px-8 py-4 text-base font-medium text-white hover:bg-gray-800 transition"
                 >
-                  <Mail className="h-5 w-5" />
-                  Request Access
-                </button>
+                  Sign In
+                </Link>
               </>
             )}
           </div>
 
           {!user && (
             <p className="mt-6 text-sm text-gray-500">
-              Not ready yet?{' '}
-              <button
-                onClick={handleRequestAccess}
-                className="text-indigo-400 hover:text-indigo-300 underline"
+              Already have an account?{' '}
+              <Link
+                href="/login"
+                className="text-indigo-400 hover:text-indigo-300"
               >
-                Request early access
-              </button>
+                Sign in
+              </Link>
             </p>
           )}
         </div>

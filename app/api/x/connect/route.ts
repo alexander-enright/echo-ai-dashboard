@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { getActivityLog } from '@/lib/supabase-server'
+import { generateAuthLink } from '@/lib/twitter-oauth'
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     // Create Supabase client
     const cookieStore = await cookies()
@@ -32,22 +32,37 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get query params
-    const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '20')
-
-    // Get user's activity log
-    const activity = await getActivityLog(user.id, limit)
-
-    return NextResponse.json({
-      success: true,
-      activity
+    // Generate OAuth link
+    const authData = await generateAuthLink()
+    
+    // Store OAuth token secret temporarily (in this case, we'll use a simple cookie-based approach)
+    // In production, you might want to use a session store or encrypted cookie
+    const response = NextResponse.json({ 
+      success: true, 
+      url: authData.url 
     })
     
+    // Store OAuth token secret in a secure cookie
+    response.cookies.set('x_oauth_token', authData.oauthToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 600 // 10 minutes
+    })
+    
+    response.cookies.set('x_oauth_secret', authData.oauthTokenSecret, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 600 // 10 minutes
+    })
+
+    return response
+    
   } catch (error: any) {
-    console.error('Error fetching activity:', error)
+    console.error('Error initiating X OAuth:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch activity' },
+      { error: error.message || 'Failed to initiate OAuth flow' },
       { status: 500 }
     )
   }
