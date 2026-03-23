@@ -37,12 +37,38 @@ export default function SettingsPage() {
     fetchXAccount()
   }, [])
 
+  // Auto-refresh when returning from OAuth
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const connected = urlParams.get('connected')
+      const error = urlParams.get('error')
+      const detail = urlParams.get('detail')
+      
+      if (connected === 'true') {
+        setMessage('X account connected successfully!')
+        fetchXAccount()
+        // Clear the URL params
+        window.history.replaceState({}, '', '/settings')
+      } else if (error) {
+        setMessage(`Connection failed: ${error}${detail ? ' - ' + decodeURIComponent(detail) : ''}`)
+        // Clear the URL params
+        window.history.replaceState({}, '', '/settings')
+      }
+    }
+  }, [])
+
   const fetchXAccount = async () => {
+    setIsLoading(true)
     try {
+      console.log('Fetching X account...')
       const res = await fetch('/api/x/profile')
       const data = await res.json()
+      console.log('X account response:', data)
       if (data.connected) {
         setXAccount(data.account)
+      } else {
+        setXAccount(null)
       }
     } catch (error) {
       console.error('Failed to fetch X account:', error)
