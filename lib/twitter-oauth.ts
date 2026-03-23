@@ -30,7 +30,7 @@ export function generateAuthURL() {
     response_type: 'code',
     client_id: X_CLIENT_ID,
     redirect_uri: REDIRECT_URI,
-    scope: 'tweet.read tweet.write users.read offline.access',
+    scope: 'tweet.read tweet.write users.read',
     state: state,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
