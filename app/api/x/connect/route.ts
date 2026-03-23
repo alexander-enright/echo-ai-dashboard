@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { generateAuthURL } from '@/lib/twitter-oauth';
 
 export const dynamic = 'force-dynamic';
@@ -16,26 +16,30 @@ export async function POST(request: NextRequest) {
   try {
     const cookieStore = cookies();
     
-    // Verify user is authenticated
-    const supabase = createServerClient(
+    // Verify user is authenticated using standard Supabase client
+    const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: any) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: any) {
-            cookieStore.set({ name, value: '', ...options });
-          },
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
         },
       }
     );
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get the session from cookies manually
+    const accessToken = cookieStore.get('sb-access-token')?.value;
+    
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in first.' },
+        { status: 401 }
+      );
+    }
+
+    // Set the auth token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
     
     if (authError || !user) {
       return NextResponse.json(
