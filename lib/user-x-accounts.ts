@@ -9,6 +9,7 @@ export interface UserXAccount {
   x_username: string;
   x_display_name: string | null;
   profile_image_url: string | null;
+  followers_count: number;
   access_token: string;
   refresh_token: string | null;
   expires_at: string | null;
@@ -44,6 +45,7 @@ export async function saveUserXAccount(params: {
   xUsername: string;
   xDisplayName?: string;
   profileImageUrl?: string;
+  followersCount?: number;
   accessToken: string;
   refreshToken?: string;
   expiresIn?: number;
