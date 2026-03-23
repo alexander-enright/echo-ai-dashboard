@@ -1,162 +1,165 @@
-import { TwitterApi } from 'twitter-api-v2'
 import crypto from 'crypto'
 
-// X OAuth 1.0a Configuration
-const X_API_KEY = process.env.X_API_KEY
-const X_API_SECRET = process.env.X_API_SECRET
+// X OAuth 2.0 Configuration
+const X_CLIENT_ID = process.env.X_API_KEY
+const X_CLIENT_SECRET = process.env.X_API_SECRET
+const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL}/api/x/callback`
 
-// Callback URL for OAuth
-const CALLBACK_URL = process.env.NEXT_PUBLIC_APP_URL 
-  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/x/callback`
-  : 'http://localhost:3000/api/x/callback'
-
-// Generate OAuth tokens
-export function generateOAuthTokens() {
-  const state = crypto.randomBytes(32).toString('hex')
+// Generate PKCE challenge
+export function generatePKCE() {
   const codeVerifier = crypto.randomBytes(32).toString('base64url')
+  const codeChallenge = crypto
+    .createHash('sha256')
+    .update(codeVerifier)
+    .digest('base64url')
   
-  return { state, codeVerifier }
+  const state = crypto.randomBytes(32).toString('hex')
+  
+  return { codeVerifier, codeChallenge, state }
 }
 
-// Create OAuth client for user authentication
-export function createOAuthClient() {
-  if (!X_API_KEY || !X_API_SECRET) {
+// Generate OAuth 2.0 authorization URL
+export function generateAuthURL() {
+  if (!X_CLIENT_ID) {
+    throw new Error('X_API_KEY (Client ID) must be configured')
+  }
+  
+  const { codeVerifier, codeChallenge, state } = generatePKCE()
+  
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: X_CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+    scope: 'tweet.read tweet.write users.read offline.access',
+    state: state,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+  })
+  
+  return {
+    url: `https://twitter.com/i/oauth2/authorize?${params.toString()}`,
+    codeVerifier,
+    state
+  }
+}
+
+// Exchange authorization code for access token
+export async function exchangeCodeForToken(code: string, codeVerifier: string) {
+  if (!X_CLIENT_ID || !X_CLIENT_SECRET) {
     throw new Error('X_API_KEY and X_API_SECRET must be configured')
   }
   
-  return new TwitterApi({
-    appKey: X_API_KEY,
-    appSecret: X_API_SECRET,
-  })
-}
-
-// Generate OAuth 1.0a request token
-export async function generateAuthLink() {
-  const client = createOAuthClient()
-  
-  try {
-    const authLink = await client.generateAuthLink(CALLBACK_URL, {
-      linkMode: 'authorize'
+  const response = await fetch('https://api.twitter.com/2/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${Buffer.from(`${X_CLIENT_ID}:${X_CLIENT_SECRET}`).toString('base64')}`
+    },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: code,
+      redirect_uri: REDIRECT_URI,
+      code_verifier: codeVerifier,
     })
-    
-    return {
-      url: authLink.url,
-      oauthToken: authLink.oauth_token,
-      oauthTokenSecret: authLink.oauth_token_secret
-    }
-  } catch (error) {
-    console.error('Error generating OAuth link:', error)
-    throw new Error('Failed to generate authentication link')
-  }
-}
-
-// Exchange OAuth tokens for access tokens
-export async function loginWithOAuth(
-  oauthToken: string,
-  oauthVerifier: string
-) {
-  const client = createOAuthClient()
+  })
   
-  try {
-    // Get the cached token secret (this should be stored temporarily during the OAuth flow)
-    // In a real implementation, you'd store this in a session or temporary storage
-    const { accessToken, accessSecret, screenName, userId } = await client.login(oauthVerifier)
-    
-    return {
-      accessToken,
-      accessSecret,
-      screenName,
-      userId
-    }
-  } catch (error) {
-    console.error('Error exchanging OAuth tokens:', error)
-    throw new Error('Failed to complete OAuth authentication')
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Token exchange failed: ${error}`)
+  }
+  
+  const data = await response.json()
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresIn: data.expires_in,
+    scope: data.scope
   }
 }
 
-// Create user client with stored credentials
-export function createUserClient(accessToken: string, accessSecret: string) {
-  if (!X_API_KEY || !X_API_SECRET) {
+// Refresh access token
+export async function refreshAccessToken(refreshToken: string) {
+  if (!X_CLIENT_ID || !X_CLIENT_SECRET) {
     throw new Error('X_API_KEY and X_API_SECRET must be configured')
   }
   
-  return new TwitterApi({
-    appKey: X_API_KEY,
-    appSecret: X_API_SECRET,
-    accessToken: accessToken,
-    accessSecret: accessSecret,
+  const response = await fetch('https://api.twitter.com/2/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${Buffer.from(`${X_CLIENT_ID}:${X_CLIENT_SECRET}`).toString('base64')}`
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    })
   })
+  
+  if (!response.ok) {
+    throw new Error('Failed to refresh token')
+  }
+  
+  return await response.json()
 }
 
-// Fetch user profile
-export async function fetchUserProfile(accessToken: string, accessSecret: string) {
-  const client = createUserClient(accessToken, accessSecret)
-  
-  try {
-    const user = await client.v2.me({
-      'user.fields': ['profile_image_url', 'public_metrics', 'verified']
-    })
-    
-    return {
-      id: user.data.id,
-      username: user.data.username,
-      displayName: user.data.name,
-      profileImageUrl: user.data.profile_image_url || null,
-      followersCount: user.data.public_metrics?.followers_count || 0,
-      verified: user.data.verified || false
+// Fetch user profile with OAuth 2.0 token
+export async function fetchUserProfile(accessToken: string) {
+  const response = await fetch('https://api.twitter.com/2/users/me?user.fields=profile_image_url,public_metrics,verified', {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
     }
-  } catch (error) {
-    console.error('Error fetching user profile:', error)
+  })
+  
+  if (!response.ok) {
     throw new Error('Failed to fetch user profile')
   }
-}
-
-// Post tweet with user credentials
-export async function postTweetAsUser(
-  accessToken: string,
-  accessSecret: string,
-  text: string
-) {
-  const client = createUserClient(accessToken, accessSecret)
   
-  try {
-    const tweet = await client.v2.tweet(text)
-    return tweet.data.id
-  } catch (error: any) {
-    console.error('Error posting tweet:', error)
-    throw new Error(error.message || 'Failed to post tweet')
+  const data = await response.json()
+  return {
+    id: data.data.id,
+    username: data.data.username,
+    displayName: data.data.name,
+    profileImageUrl: data.data.profile_image_url,
+    followersCount: data.data.public_metrics?.followers_count || 0,
+    verified: data.data.verified || false
   }
 }
 
-// Retweet with user credentials
-export async function retweetAsUser(
-  accessToken: string,
-  accessSecret: string,
-  tweetId: string
-) {
-  const client = createUserClient(accessToken, accessSecret)
+// Post tweet with OAuth 2.0 token
+export async function postTweet(accessToken: string, text: string) {
+  const response = await fetch('https://api.twitter.com/2/tweets', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ text })
+  })
   
-  try {
-    const user = await client.v2.me()
-    const retweet = await client.v2.retweet(user.data.id, tweetId)
-    
-    if (!retweet.data?.retweeted) {
-      throw new Error('Retweet was not successful')
-    }
-    
-    return tweetId
-  } catch (error: any) {
-    console.error('Error retweeting:', error)
-    throw new Error(error.message || 'Failed to retweet')
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || 'Failed to post tweet')
   }
+  
+  const data = await response.json()
+  return data.data.id
 }
 
-// Verify credentials are valid
-export async function verifyCredentials(accessToken: string, accessSecret: string) {
-  try {
-    const profile = await fetchUserProfile(accessToken, accessSecret)
-    return { valid: true, profile }
-  } catch (error) {
-    return { valid: false, error: 'Invalid credentials' }
+// Retweet with OAuth 2.0 token
+export async function retweet(accessToken: string, userId: string, tweetId: string) {
+  const response = await fetch(`https://api.twitter.com/2/users/${userId}/retweets`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ tweet_id: tweetId })
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || 'Failed to retweet')
   }
+  
+  return tweetId
 }

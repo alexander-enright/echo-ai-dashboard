@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { getXAccount, logActivity } from '@/lib/supabase-server'
-import { retweetAsUser } from '@/lib/twitter-oauth'
+import { retweet } from '@/lib/twitter-oauth'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,10 +58,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'X account not connected' }, { status: 400 })
     }
 
-    // Retweet using user's credentials
-    await retweetAsUser(
+    // Retweet using OAuth 2.0 - need user_id from X
+    // Get user's X profile first to get their user ID
+    const { fetchUserProfile } = await import('@/lib/twitter-oauth')
+    const profile = await fetchUserProfile(xAccount.access_token)
+    
+    await retweet(
       xAccount.access_token,
-      xAccount.access_secret,
+      profile.id,
       targetTweetId
     )
 

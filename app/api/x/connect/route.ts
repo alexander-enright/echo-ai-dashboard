@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { generateAuthLink } from '@/lib/twitter-oauth'
+import { generateAuthURL } from '@/lib/twitter-oauth'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,25 +34,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Generate OAuth link
-    const authData = await generateAuthLink()
+    // Generate OAuth 2.0 authorization URL
+    const authData = generateAuthURL()
     
-    // Store OAuth token secret temporarily (in this case, we'll use a simple cookie-based approach)
-    // In production, you might want to use a session store or encrypted cookie
     const response = NextResponse.json({ 
       success: true, 
       url: authData.url 
     })
     
-    // Store OAuth token secret in a secure cookie
-    response.cookies.set('x_oauth_token', authData.oauthToken, {
+    // Store PKCE code verifier and state in secure cookies
+    response.cookies.set('x_oauth_code_verifier', authData.codeVerifier, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 600 // 10 minutes
     })
     
-    response.cookies.set('x_oauth_secret', authData.oauthTokenSecret, {
+    response.cookies.set('x_oauth_state', authData.state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

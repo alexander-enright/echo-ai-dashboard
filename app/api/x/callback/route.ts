@@ -1,34 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { TwitterApi } from 'twitter-api-v2'
+import { exchangeCodeForToken, fetchUserProfile } from '@/lib/twitter-oauth'
 import { saveXAccount, logActivity } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    // Get OAuth verifier and token from query params
     const searchParams = request.nextUrl.searchParams
-    const oauthToken = searchParams.get('oauth_token')
-    const oauthVerifier = searchParams.get('oauth_verifier')
-    const denied = searchParams.get('denied')
+    const code = searchParams.get('code')
+    const state = searchParams.get('state')
+    const error = searchParams.get('error')
+    const errorDescription = searchParams.get('error_description')
 
-    // Check if user denied access
-    if (denied) {
-      return NextResponse.redirect(new URL('/settings?error=access_denied', request.url))
+    // Check for OAuth errors
+    if (error) {
+      console.error('OAuth error:', error, errorDescription)
+      return NextResponse.redirect(
+        new URL(`/settings?error=${encodeURIComponent(errorDescription || error)}`, request.url)
+      )
     }
 
-    if (!oauthToken || !oauthVerifier) {
-      return NextResponse.redirect(new URL('/settings?error=invalid_callback', request.url))
+    if (!code || !state) {
+      return NextResponse.redirect(
+        new URL('/settings?error=invalid_callback', request.url)
+      )
     }
 
-    // Get stored OAuth secret from cookie
+    // Get stored PKCE verifier and state from cookies
     const cookieStore = await cookies()
-    const oauthTokenSecret = cookieStore.get('x_oauth_secret')?.value
+    const storedCodeVerifier = cookieStore.get('x_oauth_code_verifier')?.value
+    const storedState = cookieStore.get('x_oauth_state')?.value
 
-    if (!oauthTokenSecret) {
-      return NextResponse.redirect(new URL('/settings?error=session_expired', request.url))
+    if (!storedCodeVerifier || !storedState) {
+      return NextResponse.redirect(
+        new URL('/settings?error=session_expired', request.url)
+      )
+    }
+
+    // Verify state matches (CSRF protection)
+    if (state !== storedState) {
+      return NextResponse.redirect(
+        new URL('/settings?error=invalid_state', request.url)
+      )
     }
 
     // Create Supabase client
@@ -57,50 +72,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // Exchange OAuth tokens for access tokens
-    const client = new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
-      accessToken: oauthToken,
-      accessSecret: oauthTokenSecret,
-    })
-
-    const loginResult = await client.login(oauthVerifier)
+    // Exchange authorization code for access token
+    const tokenData = await exchangeCodeForToken(code, storedCodeVerifier)
     
-    // Get user profile
-    const userClient = new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
-      accessToken: loginResult.accessToken,
-      accessSecret: loginResult.accessSecret,
-    })
-
-    const profile = await userClient.v2.me({
-      'user.fields': ['profile_image_url', 'public_metrics']
-    })
+    // Fetch user profile from X
+    const profile = await fetchUserProfile(tokenData.accessToken)
 
     // Save X account to database
     await saveXAccount({
       user_id: user.id,
-      x_user_id: profile.data.id,
-      x_username: profile.data.username,
-      x_display_name: profile.data.name,
-      access_token: loginResult.accessToken,
-      access_secret: loginResult.accessSecret,
-      profile_image_url: profile.data.profile_image_url || null,
-      followers_count: profile.data.public_metrics?.followers_count || 0,
+      x_user_id: profile.id,
+      x_username: profile.username,
+      x_display_name: profile.displayName,
+      access_token: tokenData.accessToken,
+      access_secret: tokenData.refreshToken || '', // Store refresh token as secret
+      profile_image_url: profile.profileImageUrl || null,
+      followers_count: profile.followersCount,
     })
 
     // Log activity
     await logActivity(user.id, 'connect_x', {
-      x_username: profile.data.username,
-      x_user_id: profile.data.id
+      x_username: profile.username,
+      x_user_id: profile.id
     })
 
     // Clean up OAuth cookies
     const response = NextResponse.redirect(new URL('/dashboard?connected=true', request.url))
-    response.cookies.delete('x_oauth_token')
-    response.cookies.delete('x_oauth_secret')
+    response.cookies.delete('x_oauth_code_verifier')
+    response.cookies.delete('x_oauth_state')
 
     return response
     

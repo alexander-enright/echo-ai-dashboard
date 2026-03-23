@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { getXAccount, updatePostStatus, logActivity } from '@/lib/supabase-server'
-import { postTweetAsUser } from '@/lib/twitter-oauth'
+import { postTweet } from '@/lib/twitter-oauth'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,10 +49,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'X account not connected' }, { status: 400 })
     }
 
-    // Post to X using user's credentials
-    const tweetId = await postTweetAsUser(
+    // Post to X using OAuth 2.0 access token
+    const tweetId = await postTweet(
       xAccount.access_token,
-      xAccount.access_secret,
       content
     )
 
