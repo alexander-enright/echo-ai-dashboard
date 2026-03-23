@@ -49,6 +49,10 @@ export async function exchangeCodeForToken(code: string, codeVerifier: string) {
     throw new Error('X_API_KEY and X_API_SECRET must be configured')
   }
   
+  console.log('Exchanging code for token...')
+  console.log('Client ID:', X_CLIENT_ID.substring(0, 10) + '...')
+  console.log('Redirect URI:', REDIRECT_URI)
+  
   const response = await fetch('https://api.twitter.com/2/oauth2/token', {
     method: 'POST',
     headers: {
@@ -64,8 +68,9 @@ export async function exchangeCodeForToken(code: string, codeVerifier: string) {
   })
   
   if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Token exchange failed: ${error}`)
+    const errorText = await response.text()
+    console.error('Token exchange failed:', response.status, errorText)
+    throw new Error(`Token exchange failed: ${response.status} ${errorText}`)
   }
   
   const data = await response.json()
@@ -111,7 +116,9 @@ export async function fetchUserProfile(accessToken: string) {
   })
   
   if (!response.ok) {
-    throw new Error('Failed to fetch user profile')
+    const errorText = await response.text()
+    console.error('Failed to fetch profile:', response.status, errorText)
+    throw new Error(`Failed to fetch user profile: ${response.status}`)
   }
   
   const data = await response.json()
@@ -138,6 +145,7 @@ export async function postTweet(accessToken: string, text: string) {
   
   if (!response.ok) {
     const error = await response.json()
+    console.error('Post tweet error:', error)
     throw new Error(error.detail || 'Failed to post tweet')
   }
   
@@ -158,6 +166,7 @@ export async function retweet(accessToken: string, userId: string, tweetId: stri
   
   if (!response.ok) {
     const error = await response.json()
+    console.error('Retweet error:', error)
     throw new Error(error.detail || 'Failed to retweet')
   }
   
