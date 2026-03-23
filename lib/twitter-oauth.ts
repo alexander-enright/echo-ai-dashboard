@@ -36,8 +36,8 @@ export function generateAuthURL() {
     code_challenge_method: 'S256',
   })
   
-  // Use only basic scopes first
-  params.append('scope', 'tweet.read users.read')
+  // Use minimal scopes - just read for now to test connection
+  params.append('scope', 'users.read')
   
   const url = `https://twitter.com/i/oauth2/authorize?${params.toString()}`
   
