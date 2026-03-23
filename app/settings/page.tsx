@@ -18,7 +18,7 @@ interface XAccount {
   followers_count: number;
 }
 
-function SettingsContent() {
+export default function SettingsPage() {
   const { user, signOut } = useAuth();
   const [accounts, setAccounts] = useState<XAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -257,8 +257,4 @@ function SettingsContent() {
       </main>
     </div>
   );
-}
-
-export default function SettingsPage() {
-  return <SettingsContent />;
 }
