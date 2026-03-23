@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
 
   console.log('Cookies present:', { 
     hasVerifier: !!storedCodeVerifier, 
-    hasState: !!storedState 
+    hasState: !!storedState,
+    allCookies: Array.from(cookieStore.getAll()).map(c => c.name)
   })
 
   if (!storedCodeVerifier || !storedState) {

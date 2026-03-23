@@ -43,17 +43,20 @@ export async function POST(request: NextRequest) {
     })
     
     // Store PKCE code verifier and state in secure cookies
+    // Always secure since we're on HTTPS
     response.cookies.set('x_oauth_code_verifier', authData.codeVerifier, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
       sameSite: 'lax',
+      path: '/',
       maxAge: 600 // 10 minutes
     })
     
     response.cookies.set('x_oauth_state', authData.state, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
       sameSite: 'lax',
+      path: '/',
       maxAge: 600 // 10 minutes
     })
 
