@@ -1,7 +1,8 @@
 'use client';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+export const fetchCache = 'force-no-store';
+export const runtime = 'nodejs';
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
@@ -17,7 +18,7 @@ interface XAccount {
   followers_count: number;
 }
 
-export default function SettingsPage() {
+function SettingsContent() {
   const { user, signOut } = useAuth();
   const [accounts, setAccounts] = useState<XAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -256,4 +257,8 @@ export default function SettingsPage() {
       </main>
     </div>
   );
+}
+
+export default function SettingsPage() {
+  return <SettingsContent />;
 }
