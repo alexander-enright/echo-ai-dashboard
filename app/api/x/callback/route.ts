@@ -1,136 +1,151 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-import { exchangeCodeForToken, fetchUserProfile } from '@/lib/twitter-oauth'
-import { saveXAccount, logActivity } from '@/lib/supabase-server'
+import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import { exchangeCodeForToken, fetchUserProfile } from '@/lib/twitter-oauth';
+import { saveUserXAccount } from '@/lib/user-x-accounts';
 
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic';
 
+/**
+ * GET /api/x/callback
+ * Handles OAuth 2.0 callback from X (Twitter)
+ * 
+ * Flow:
+ * 1. Receives authorization code from X
+ * 2. Validates state parameter (CSRF protection)
+ * 3. Exchanges code for access_token + refresh_token
+ * 4. Fetches user profile to get x_user_id
+ * 5. Saves tokens to user_x_accounts table
+ * 6. Redirects to dashboard with success message
+ */
 export async function GET(request: NextRequest) {
-  console.log('=== X OAuth Callback ===')
-  console.log('URL:', request.url)
-  
-  const searchParams = request.nextUrl.searchParams
-  const code = searchParams.get('code')
-  const state = searchParams.get('state')
-  const error = searchParams.get('error')
-  const errorDescription = searchParams.get('error_description')
-
-  // Check for OAuth errors from X
-  if (error) {
-    console.error('X OAuth error:', error, errorDescription)
-    return NextResponse.redirect(
-      new URL(`/settings?error=x_oauth_error&detail=${encodeURIComponent(errorDescription || error)}`, 'https://echo-ai-dashboard.vercel.app')
-    )
-  }
-
-  if (!code || !state) {
-    console.error('Missing code or state')
-    return NextResponse.redirect(
-      new URL('/settings?error=missing_params', 'https://echo-ai-dashboard.vercel.app')
-    )
-  }
-
-  // Get stored PKCE verifier from cookies
-  const cookieStore = await cookies()
-  const storedCodeVerifier = cookieStore.get('x_oauth_code_verifier')?.value
-  const storedState = cookieStore.get('x_oauth_state')?.value
-
-  console.log('Cookies present:', { 
-    hasVerifier: !!storedCodeVerifier, 
-    hasState: !!storedState,
-    allCookies: Array.from(cookieStore.getAll()).map(c => c.name)
-  })
-
-  if (!storedCodeVerifier || !storedState) {
-    console.error('Session expired - no cookies')
-    return NextResponse.redirect(
-      new URL('/settings?error=session_expired', 'https://echo-ai-dashboard.vercel.app')
-    )
-  }
-
-  // Verify state matches
-  if (state !== storedState) {
-    console.error('State mismatch')
-    return NextResponse.redirect(
-      new URL('/settings?error=state_mismatch', 'https://echo-ai-dashboard.vercel.app')
-    )
-  }
-
   try {
-    // Exchange code for token
-    console.log('Exchanging code for token...')
-    const tokenData = await exchangeCodeForToken(code, storedCodeVerifier)
-    console.log('Got token:', !!tokenData.accessToken)
+    const cookieStore = cookies();
+    const url = new URL(request.url);
     
-    // Fetch user profile
-    console.log('Fetching profile...')
-    const profile = await fetchUserProfile(tokenData.accessToken)
-    console.log('Profile:', profile.username)
+    // Get OAuth parameters from URL
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
+    const error = url.searchParams.get('error');
+    const errorDescription = url.searchParams.get('error_description');
 
-    // Get current user from Supabase
+    console.log('[Callback] Received callback:', { 
+      hasCode: !!code, 
+      hasState: !!state,
+      error 
+    });
+
+    // Check for OAuth errors from X
+    if (error) {
+      console.error('[Callback] OAuth error:', error, errorDescription);
+      return NextResponse.redirect(
+        new URL(`/settings?error=x_oauth&detail=${encodeURIComponent(errorDescription || error)}`, 
+        process.env.NEXT_PUBLIC_APP_URL!)
+      );
+    }
+
+    // Validate required parameters
+    if (!code || !state) {
+      console.error('[Callback] Missing code or state');
+      return NextResponse.redirect(
+        new URL('/settings?error=missing_params', process.env.NEXT_PUBLIC_APP_URL!)
+      );
+    }
+
+    // Get stored PKCE values from cookies
+    const storedCodeVerifier = cookieStore.get('x_oauth_code_verifier')?.value;
+    const storedState = cookieStore.get('x_oauth_state')?.value;
+
+    console.log('[Callback] Cookie check:', { 
+      hasVerifier: !!storedCodeVerifier, 
+      hasState: !!storedState 
+    });
+
+    // Validate session exists
+    if (!storedCodeVerifier || !storedState) {
+      console.error('[Callback] Session expired');
+      return NextResponse.redirect(
+        new URL('/settings?error=session_expired', process.env.NEXT_PUBLIC_APP_URL!)
+      );
+    }
+
+    // Validate state matches (CSRF protection)
+    if (state !== storedState) {
+      console.error('[Callback] State mismatch');
+      return NextResponse.redirect(
+        new URL('/settings?error=state_mismatch', process.env.NEXT_PUBLIC_APP_URL!)
+      );
+    }
+
+    // Get current user
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           get(name: string) {
-            return cookieStore.get(name)?.value
+            return cookieStore.get(name)?.value;
           },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options })
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options });
           },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: '', ...options })
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: '', ...options });
           },
         },
       }
-    )
+    );
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.error('No user logged in')
+      console.error('[Callback] User not logged in');
       return NextResponse.redirect(
-        new URL('/login?error=not_logged_in', 'https://echo-ai-dashboard.vercel.app')
-      )
+        new URL('/login?error=not_logged_in', process.env.NEXT_PUBLIC_APP_URL!)
+      );
     }
 
-    console.log('User:', user.id)
+    console.log('[Callback] User authenticated:', user.id.substring(0, 8));
+
+    // Exchange code for tokens
+    console.log('[Callback] Exchanging code for tokens...');
+    const tokenData = await exchangeCodeForToken(code, storedCodeVerifier);
+
+    // Fetch X user profile
+    console.log('[Callback] Fetching X profile...');
+    const profile = await fetchUserProfile(tokenData.accessToken);
 
     // Save to database
-    console.log('Saving to database...')
-    await saveXAccount({
-      user_id: user.id,
-      x_user_id: profile.id,
-      x_username: profile.username,
-      x_display_name: profile.displayName,
-      access_token: tokenData.accessToken,
-      access_secret: tokenData.refreshToken || '',
-      profile_image_url: profile.profileImageUrl || null,
-      followers_count: profile.followersCount,
-    })
-    console.log('Saved to database')
+    console.log('[Callback] Saving to database...');
+    await saveUserXAccount({
+      userId: user.id,
+      xUserId: profile.id,
+      xUsername: profile.username,
+      xDisplayName: profile.displayName,
+      profileImageUrl: profile.profileImageUrl,
+      accessToken: tokenData.accessToken,
+      refreshToken: tokenData.refreshToken,
+      expiresIn: tokenData.expiresIn,
+      scope: tokenData.scope,
+    });
 
-    // Log activity
-    await logActivity(user.id, 'connect_x', {
-      x_username: profile.username
-    })
+    console.log('[Callback] Successfully connected:', profile.username);
 
-    // Clean up cookies and redirect to dashboard
+    // Clean up OAuth cookies and redirect
     const response = NextResponse.redirect(
-      new URL('/dashboard?connected=true', 'https://echo-ai-dashboard.vercel.app')
-    )
-    response.cookies.delete('x_oauth_code_verifier')
-    response.cookies.delete('x_oauth_state')
-
-    console.log('Success! Redirecting to dashboard')
-    return response
+      new URL('/settings?connected=true', process.env.NEXT_PUBLIC_APP_URL!)
+    );
     
-  } catch (err: any) {
-    console.error('Callback error:', err.message)
+    response.cookies.delete('x_oauth_code_verifier');
+    response.cookies.delete('x_oauth_state');
+
+    return response;
+
+  } catch (error: any) {
+    console.error('[Callback] Error:', error);
     return NextResponse.redirect(
-      new URL(`/settings?error=callback_failed&detail=${encodeURIComponent(err.message)}`, 'https://echo-ai-dashboard.vercel.app')
-    )
+      new URL(`/settings?error=callback_failed&detail=${encodeURIComponent(error.message)}`, 
+      process.env.NEXT_PUBLIC_APP_URL!)
+    );
   }
 }

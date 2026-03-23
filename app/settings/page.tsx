@@ -1,313 +1,276 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useAuth } from '@/components/AuthProvider'
-import { 
-  Twitter, 
-  User, 
-  AlertTriangle,
-  Loader2,
-  CheckCircle2,
-  X,
-  ArrowLeft,
-  RefreshCw
-} from 'lucide-react'
-import Link from 'next/link'
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/components/AuthProvider';
+import { Twitter, User, AlertTriangle, Loader2, CheckCircle2, X, ArrowLeft, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
 
 interface XAccount {
-  id: string
-  x_user_id: string
-  x_username: string
-  x_display_name: string
-  profile_image_url: string | null
-  followers_count: number
-  verified: boolean
+  id: string;
+  x_user_id: string;
+  x_username: string;
+  x_display_name: string | null;
+  profile_image_url: string | null;
+  followers_count: number;
 }
 
 export default function SettingsPage() {
-  const { user, signOut } = useAuth()
-  const [xAccount, setXAccount] = useState<XAccount | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isConnecting, setIsConnecting] = useState(false)
-  const [isDisconnecting, setIsDisconnecting] = useState(false)
-  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
-  const [message, setMessage] = useState('')
+  const { user, signOut } = useAuth();
+  const [accounts, setAccounts] = useState<XAccount[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
+  // Fetch connected X accounts on load
   useEffect(() => {
-    fetchXAccount()
-  }, [])
+    fetchAccounts();
+  }, []);
 
-  // Auto-refresh when returning from OAuth
+  // Check for OAuth callback parameters
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search)
-      const connected = urlParams.get('connected')
-      const error = urlParams.get('error')
-      const detail = urlParams.get('detail')
-      
+      const urlParams = new URLSearchParams(window.location.search);
+      const connected = urlParams.get('connected');
+      const errorParam = urlParams.get('error');
+      const detail = urlParams.get('detail');
+
       if (connected === 'true') {
-        setMessage('X account connected successfully!')
-        fetchXAccount()
-        // Clear the URL params
-        window.history.replaceState({}, '', '/settings')
-      } else if (error) {
-        setMessage(`Connection failed: ${error}${detail ? ' - ' + decodeURIComponent(detail) : ''}`)
-        // Clear the URL params
-        window.history.replaceState({}, '', '/settings')
+        setMessage('X account connected successfully!');
+        fetchAccounts();
+        window.history.replaceState({}, '', '/settings');
+      } else if (errorParam) {
+        const detailText = detail ? ` - ${decodeURIComponent(detail)}` : '';
+        setError(`Connection failed: ${errorParam}${detailText}`);
+        window.history.replaceState({}, '', '/settings');
       }
     }
-  }, [])
+  }, []);
 
-  const fetchXAccount = async () => {
-    setIsLoading(true)
+  const fetchAccounts = async () => {
     try {
-      console.log('Fetching X account...')
-      const res = await fetch('/api/x/profile')
-      const data = await res.json()
-      console.log('X account response:', data)
+      setIsLoading(true);
+      const res = await fetch('/api/x/profile');
+      const data = await res.json();
+      
       if (data.connected) {
-        setXAccount(data.account)
+        setAccounts(data.accounts);
       } else {
-        setXAccount(null)
+        setAccounts([]);
       }
     } catch (error) {
-      console.error('Failed to fetch X account:', error)
+      console.error('Failed to fetch X accounts:', error);
+      setError('Failed to load X accounts');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleConnectX = async () => {
-    setIsConnecting(true)
+    setIsConnecting(true);
+    setError('');
+    
     try {
-      const res = await fetch('/api/x/connect', { method: 'POST' })
-      const data = await res.json()
+      const res = await fetch('/api/x/connect', { method: 'POST' });
+      const data = await res.json();
+      
       if (data.url) {
-        window.location.href = data.url
+        // Redirect to X OAuth
+        window.location.href = data.url;
+      } else {
+        setError('Failed to start OAuth flow');
+        setIsConnecting(false);
       }
-    } catch (error) {
-      console.error('Failed to connect X:', error)
-      setMessage('Failed to connect X account')
-      setIsConnecting(false)
+    } catch (error: any) {
+      setError(error.message || 'Failed to connect X account');
+      setIsConnecting(false);
     }
-  }
+  };
 
-  const handleDisconnect = async () => {
-    setIsDisconnecting(true)
+  const handleDisconnect = async (xUserId: string) => {
     try {
-      const res = await fetch('/api/x/disconnect', { method: 'POST' })
+      const res = await fetch('/api/x/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ xUserId }),
+      });
+
       if (res.ok) {
-        setXAccount(null)
-        setShowDisconnectConfirm(false)
-        setMessage('X account disconnected successfully')
+        setMessage('X account disconnected');
+        fetchAccounts();
+      } else {
+        setError('Failed to disconnect account');
       }
-    } catch (error) {
-      console.error('Failed to disconnect:', error)
-      setMessage('Failed to disconnect X account')
-    } finally {
-      setIsDisconnecting(false)
+    } catch (error: any) {
+      setError(error.message || 'Failed to disconnect');
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-950">
       {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
+      <header className="border-b border-gray-800 bg-gray-900/50">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </div>
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-gray-400 hover:text-white">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Link>
         </div>
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <h1 className="text-2xl font-bold text-white mb-8">Settings</h1>
 
+        {/* Messages */}
         {message && (
-          <div className="mb-6 rounded-lg bg-green-500/10 border border-green-500/20 p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-green-400">
-              <CheckCircle2 className="h-5 w-5" />
-              <span>{message}</span>
-            </div>
-            <button 
-              onClick={() => setMessage('')}
-              className="text-green-400 hover:text-green-300"
-            >
+          <div className="mb-6 rounded-lg bg-green-500/10 border border-green-500/20 p-4 flex items-center gap-2 text-green-400">
+            <CheckCircle2 className="h-5 w-5" />
+            {message}
+            <button onClick={() => setMessage('')} className="ml-auto">
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
 
-        <div className="space-y-6">
-          {/* Account Section */}
-          <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <User className="h-5 w-5 text-indigo-400" />
-              Account
-            </h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">
-                  Email
-                </label>
-                <p className="text-white">{user?.email}</p>
-              </div>
-              
-              <div className="pt-4 border-t border-gray-800">
-                <button
-                  onClick={signOut}
-                  className="text-sm text-red-400 hover:text-red-300"
-                >
-                  Sign out of all sessions
-                </button>
-              </div>
-            </div>
+        {error && (
+          <div className="mb-6 rounded-lg bg-red-500/10 border border-red-500/20 p-4 flex items-center gap-2 text-red-400">
+            <AlertTriangle className="h-5 w-5" />
+            {error}
+            <button onClick={() => setError('')} className="ml-auto">
+              <X className="h-4 w-4" />
+            </button>
           </div>
+        )}
 
-          {/* X Connection Section */}
-          <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Twitter className="h-5 w-5 text-blue-400" />
-                X (Twitter) Connection
-              </h2>
-              
-              {xAccount && (
-                <span className="flex items-center gap-1 text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded-full">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Connected
+        {/* X Accounts Section */}
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-6 mb-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Twitter className="h-5 w-5 text-blue-400" />
+              X (Twitter) Accounts
+              {accounts.length > 0 && (
+                <span className="ml-2 text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full">
+                  {accounts.length} connected
                 </span>
               )}
-            </div>
+            </h2>
+          </div>
 
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
-              </div>
-            ) : xAccount ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 rounded-lg bg-gray-800/50">
-                  {xAccount.profile_image_url ? (
-                    <img 
-                      src={xAccount.profile_image_url} 
-                      alt={xAccount.x_display_name}
-                      className="h-16 w-16 rounded-full"
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+            </div>
+          ) : accounts.length > 0 ? (
+            <div className="space-y-4">
+              {accounts.map((account) => (
+                <div key={account.x_user_id} className="flex items-center gap-4 p-4 rounded-lg bg-gray-800/50">
+                  {account.profile_image_url ? (
+                    <img
+                      src={account.profile_image_url}
+                      alt={account.x_display_name || account.x_username}
+                      className="h-12 w-12 rounded-full"
                     />
                   ) : (
-                    <div className="h-16 w-16 rounded-full bg-gray-700 flex items-center justify-center"
-                      >
-                      <User className="h-8 w-8 text-gray-500" />
+                    <div className="h-12 w-12 rounded-full bg-gray-700 flex items-center justify-center">
+                      <User className="h-6 w-6 text-gray-500" />
                     </div>
                   )}
                   
-                  <div>
-                    <p className="font-semibold text-white text-lg">
-                      {xAccount.x_display_name}
-                      {xAccount.verified && (
-                        <span className="ml-2 text-blue-400">✓</span>
-                      )}
+                  <div className="flex-1">
+                    <p className="font-semibold text-white">
+                      {account.x_display_name || account.x_username}
                     </p>
-                    <p className="text-gray-400">@{xAccount.x_username}</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {xAccount.followers_count.toLocaleString()} followers
-                    </p>
+                    <p className="text-gray-400 text-sm">@{account.x_username}</p>
+                    {account.followers_count > 0 && (
+                      <p className="text-gray-500 text-xs">
+                        {account.followers_count.toLocaleString()} followers
+                      </p>
+                    )}
                   </div>
+
+                  <button
+                    onClick={() => handleDisconnect(account.x_user_id)}
+                    className="text-sm text-red-400 hover:text-red-300 px-3 py-1 rounded border border-red-500/30 hover:border-red-500/50"
+                  >
+                    Disconnect
+                  </button>
                 </div>
+              ))}
 
-                {!showDisconnectConfirm ? (
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setShowDisconnectConfirm(true)}
-                      className="rounded-lg border border-red-500/50 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 transition"
-                    >
-                      Disconnect Account
-                    </button>
-                  </div>
+              <button
+                onClick={handleConnectX}
+                disabled={isConnecting}
+                className="w-full mt-4 flex items-center justify-center gap-2 rounded-lg border border-dashed border-gray-700 py-3 text-gray-400 hover:text-white hover:border-gray-600 transition"
+              >
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Connecting...
+                  </>
                 ) : (
-                  <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
-                    <div className="flex items-start gap-3 mb-4">
-                      <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-white font-medium">Disconnect X Account?</p>
-                        <p className="text-gray-400 text-sm mt-1">
-                          This will remove your X connection. You won't be able to post or retweet until you reconnect.
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-3">
-                      <button
-                        onClick={handleDisconnect}
-                        disabled={isDisconnecting}
-                        className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50 transition"
-                      >
-                        {isDisconnecting ? (
-                          <>
-                            <Loader2 className="inline h-4 w-4 animate-spin mr-2" />
-                            Disconnecting...
-                          </>
-                        ) : (
-                          'Yes, Disconnect'
-                        )}
-                      </button>
-                      
-                      <button
-                        onClick={() => setShowDisconnectConfirm(false)}
-                        disabled={isDisconnecting}
-                        className="rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 transition"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
+                  <>
+                    <Twitter className="h-4 w-4" />
+                    Connect Another X Account
+                  </>
                 )}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Twitter className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400 mb-4">
-                  Connect your X account to start posting and engaging with your audience
-                </p>
-                <button
-                  onClick={handleConnectX}
-                  disabled={isConnecting}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-6 py-3 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  {isConnecting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <Twitter className="h-4 w-4" />
-                      Connect X Account
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
+              </button>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Twitter className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400 mb-4">
+                Connect your X account to start posting and scheduling
+              </p>
+              <button
+                onClick={handleConnectX}
+                disabled={isConnecting}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-6 py-3 text-white hover:bg-blue-600 disabled:opacity-50"
+              >
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Twitter className="h-4 w-4" />
+                    Connect X Account
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
 
-          {/* About Section */}
-          <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">About Echo</h2>
+        {/* Account Info */}
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <User className="h-5 w-5 text-indigo-400" />
+            Account
+          </h2>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
+              <p className="text-white">{user?.email}</p>
+            </div>
             
-            <div className="space-y-2 text-sm text-gray-400">
-              <p>Echo is your AI-powered social media automation platform for X (Twitter).</p>
-              <p>Version 2.0 — Multi-User SaaS</p>
-              <p className="pt-2 border-t border-gray-800">Built with Next.js, Supabase, and Twitter API v2.</p>
+            <div className="pt-4 border-t border-gray-800">
+              <button onClick={signOut} className="text-sm text-red-400 hover:text-red-300">
+                Sign out
+              </button>
             </div>
           </div>
         </div>
+
+        {/* About */}
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">About Echo</h2>
+          <p className="text-gray-400 text-sm">
+            Echo v2.0 — Multi-user social media automation platform
+          </p>
+        </div>
       </main>
     </div>
-  )
+  );
 }

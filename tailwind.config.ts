@@ -8,16 +8,15 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-      },
       colors: {
-        gray: {
-          850: '#1f2937',
-          900: '#111827',
-          950: '#030712',
-        },
-      },
+        primary: {
+          50: '#eff6ff',
+          100: '#dbeafe',
+          500: '#3b82f6',
+          600: '#2563eb',
+          700: '#1d4ed8',
+        }
+      }
     },
   },
   plugins: [],
